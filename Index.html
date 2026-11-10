@@ -1,0 +1,2871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crown Worldwide Group - 3D Logistics Digital Twin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #e2e8f0;
+            user-select: none;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08);
+        }
+        .crown-gradient {
+            background: linear-gradient(135deg, #d90429 0%, #ef233c 100%);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(241, 245, 249, 0.5);
+            border-radius: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .marker-label {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            z-index: 10;
+        }
+        .marker-label:hover {
+            transform: translate(-50%, -106%) scale(1.04);
+            z-index: 20;
+        }
+        .pulse-dot {
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(217, 4, 41, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(217, 4, 41, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(217, 4, 41, 0); }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Floating 3D HTML Labels Container -->
+    <div id="labels-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden"></div>
+
+    <!-- Top Navigation & Brand Header -->
+    <header class="fixed top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-3 pointer-events-none">
+        <!-- Brand & Title + Directory Menu Toggle -->
+        <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-3 pointer-events-auto">
+            <button id="btn-toggle-sidebar" onclick="toggleSidebarMenu()" class="px-3 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition flex items-center gap-2 shadow-sm" title="Open/Close Directory Menu">
+                <i id="sidebar-toggle-icon" class="fa-solid fa-bars"></i>
+                <span id="sidebar-toggle-text">Open Menu</span>
+            </button>
+            <div class="h-7 w-px bg-slate-200"></div>
+            <div class="crown-gradient text-white w-9 h-9 rounded-xl flex items-center justify-center shadow-md shadow-red-500/20 shrink-0">
+                <i class="fa-solid fa-crown text-base text-amber-300"></i>
+            </div>
+            <div class="hidden sm:block">
+                <div class="flex items-center gap-2">
+                    <h1 class="font-extrabold text-sm sm:text-base tracking-tight text-slate-900">CROWN WORLDWIDE GROUP</h1>
+                    <span class="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border border-emerald-200">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span> DAYLIGHT TWIN
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-500 font-medium">Hong Kong Smart Logistics & Warehouse Operations Hub</p>
+            </div>
+        </div>
+
+        <!-- Collapsible KPI Telemetry Panel (Minimized by Default) -->
+        <div id="kpi-panel" class="glass-panel rounded-2xl px-4 py-2 hidden items-center gap-5 pointer-events-auto">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-red-50 text-red-600 flex items-center justify-center font-bold text-xs">
+                    <i class="fa-solid fa-warehouse"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Facilities</div>
+                    <div class="text-xs font-bold text-slate-800">4 Hubs Active</div>
+                </div>
+            </div>
+            <div class="h-6 w-px bg-slate-200"></div>
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs">
+                    <i class="fa-solid fa-truck-fast"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Crown Fleet</div>
+                    <div class="text-xs font-bold text-slate-800"><span id="kpi-moving">10</span> Transit / <span id="kpi-docked">10</span> Bay</div>
+                </div>
+            </div>
+            <div class="h-6 w-px bg-slate-200"></div>
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                    <i class="fa-solid fa-helmet-safety"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Bay Staff</div>
+                    <div class="text-xs font-bold text-slate-800">15 Red Polo Crew</div>
+                </div>
+            </div>
+            <div class="h-6 w-px bg-slate-200"></div>
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xs">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                </div>
+                <div>
+                    <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Cargoes Handled</div>
+                    <div class="text-xs font-bold text-slate-800" id="kpi-cargo">1,428 Crates</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation & Menu Controls -->
+        <div class="glass-panel rounded-2xl px-3 py-2 flex items-center gap-2 pointer-events-auto">
+            <button id="btn-toggle-kpi" onclick="toggleKpiMenu()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition flex items-center gap-1.5" title="Open/Close Live Stats">
+                <i class="fa-solid fa-chart-simple text-red-600"></i> <span id="kpi-toggle-text">Show Stats</span>
+            </button>
+            <button id="btn-toggle-labels" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-tags"></i> <span>Labels</span>
+            </button>
+            <button id="btn-speed" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-gauge-high text-red-600"></i> <span id="speed-label">1.0x</span>
+            </button>
+            <button id="btn-reset-cam" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-red-600 text-white hover:bg-red-700 transition flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-compass"></i> <span class="hidden sm:inline">Overview</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Left Panel: Warehouses & Fleet Directory (Minimized by Default) -->
+    <aside class="fixed top-20 left-3 bottom-16 w-80 max-w-[88vw] z-20 flex flex-col gap-3 pointer-events-none transition-transform duration-300 -translate-x-[120%]" id="sidebar-panel">
+        <!-- Facility Selector Card -->
+        <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex flex-col gap-2.5">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <i class="fa-solid fa-building-shield text-red-600"></i> Warehouse Network (4)
+                </h2>
+                <button onclick="toggleSidebarMenu()" class="w-6 h-6 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 flex items-center justify-center text-xs transition" title="Minimize Menu">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2" id="warehouse-list">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </div>
+
+        <!-- Live Fleet & Workers Inspector -->
+        <div class="glass-panel rounded-2xl p-3.5 pointer-events-auto flex-1 flex flex-col min-h-0">
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex gap-1 bg-slate-100 p-1 rounded-xl w-full">
+                    <button id="tab-vehicles" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-900 shadow-sm transition">
+                        <i class="fa-solid fa-truck text-red-600 mr-1"></i> 20 Vehicles
+                    </button>
+                    <button id="tab-workers" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition">
+                        <i class="fa-solid fa-people-carry-box text-red-600 mr-1"></i> 15 Workers
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter/Info Banner -->
+            <div id="fleet-banner" class="bg-red-50/80 border border-red-100 rounded-xl p-2 mb-2 flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg crown-gradient flex items-center justify-center text-white shrink-0">
+                    <i class="fa-solid fa-shirt text-sm"></i>
+                </div>
+                <div class="text-[11px] leading-tight text-slate-600">
+                    <span class="font-bold text-slate-800">Crown Uniform & Fleet:</span> Red Crown Polo workers & 20 Eco-Fleet trucks/vans.
+                </div>
+            </div>
+
+            <!-- Scrollable Entity List -->
+            <div id="entity-list" class="flex-1 overflow-y-auto custom-scrollbar pr-1 space-y-1.5">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    </aside>
+
+    <!-- Right Selected Entity / Facility Detail Card (Minimized by Default) -->
+    <div id="inspector-card" class="fixed top-20 right-3 w-80 max-w-[90vw] z-20 glass-panel rounded-2xl p-4 pointer-events-auto hidden transition-all duration-200">
+        <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2.5">
+                <div id="insp-icon" class="w-10 h-10 rounded-xl crown-gradient text-white flex items-center justify-center text-lg shadow">
+                    <i class="fa-solid fa-warehouse"></i>
+                </div>
+                <div>
+                    <span id="insp-badge" class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-100 text-red-700">Facility</span>
+                    <h3 id="insp-title" class="font-bold text-sm text-slate-900 mt-0.5">Main Warehouse</h3>
+                </div>
+            </div>
+            <button id="close-inspector" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <p id="insp-subtitle" class="text-xs text-slate-500 mb-3">9-11 Yuen On Street, Siu Lek Yuen, Sha Tin</p>
+        
+        <div id="insp-details" class="space-y-2 text-xs border-t border-slate-200/80 pt-2.5">
+            <!-- Populated by JS -->
+        </div>
+
+        <div id="insp-extra-actions" class="mt-2.5 hidden">
+            <!-- Extra facility-specific buttons such as Aramex project -->
+        </div>
+
+        <div class="mt-3 pt-2.5 border-t border-slate-200/80 flex items-center justify-between gap-2">
+            <a id="insp-map-link" href="https://maps.app.goo.gl/i8CHR2hBXq4pvWwR9" target="_blank" rel="noopener noreferrer" class="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold text-center flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-map-location-dot text-amber-400"></i> Google Maps
+            </a>
+            <button id="insp-follow-btn" class="py-2 px-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+                <i class="fa-solid fa-video"></i> Focus Cam
+            </button>
+        </div>
+    </div>
+
+    <!-- Bottom Camera Preset Dock & Controls Help (Minimized by Default with Toggle Button) -->
+    <footer class="fixed bottom-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div class="flex items-center gap-2 pointer-events-auto max-w-full">
+            <button id="btn-toggle-bottom-dock" onclick="toggleBottomDock()" class="glass-panel px-3.5 py-2 rounded-2xl text-xs font-bold text-slate-800 hover:bg-white transition flex items-center gap-2 shadow-sm shrink-0">
+                <i id="bottom-dock-icon" class="fa-solid fa-location-crosshairs text-red-600"></i>
+                <span id="bottom-dock-text">Open Quick Teleport</span>
+            </button>
+
+            <div id="bottom-dock-content" class="glass-panel rounded-2xl px-3.5 py-2 hidden items-center gap-2 overflow-x-auto max-w-full">
+                <button onclick="focusFacility('MAIN')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition flex items-center gap-1.5 shrink-0 shadow-sm">
+                    <i class="fa-solid fa-crown text-amber-300"></i> Main HQ Warehouse
+                </button>
+                <button onclick="focusFacility('WH1')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition shrink-0">
+                    Warehouse 1 (Tuen Mun Tower)
+                </button>
+                <button onclick="focusFacility('WH2')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition shrink-0">
+                    Warehouse 2 (Yuen Long)
+                </button>
+                <button onclick="focusFacility('WH3')" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition shrink-0">
+                    Warehouse 3 (Tak Yip St)
+                </button>
+                <button onclick="focusLoadingBayAction()" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white transition flex items-center gap-1.5 shrink-0 shadow-sm">
+                    <i class="fa-solid fa-people-carry-box"></i> Close-Up Bay Action
+                </button>
+            </div>
+        </div>
+
+        <div id="bottom-help-content" class="glass-panel rounded-2xl px-3.5 py-2 text-[11px] text-slate-600 font-medium hidden items-center gap-3 pointer-events-auto">
+            <span><i class="fa-solid fa-computer-mouse text-red-600 mr-1"></i> <b>Left Drag:</b> Orbit</span>
+            <span><i class="fa-solid fa-arrows-up-down-left-right text-red-600 mr-1"></i> <b>Right Drag:</b> Pan</span>
+            <span><i class="fa-solid fa-magnifying-glass-plus text-red-600 mr-1"></i> <b>Scroll:</b> Zoom</span>
+        </div>
+    </footer>
+
+    <script>
+        /********************************************************************
+         * 1. FACILITY & DIGITAL TWIN CONFIGURATION
+         ********************************************************************/
+        const FACILITIES = {
+            MAIN: {
+                id: 'MAIN',
+                name: 'Main Warehouse (Crown HQ)',
+                shortName: 'Main Warehouse',
+                address: '9-11 Yuen On St, Siu Lek Yuen, Sha Tin',
+                mapUrl: 'https://maps.app.goo.gl/i8CHR2hBXq4pvWwR9',
+                projectUrl: 'https://crowndufry.vercel.app/',
+                projectLabel: 'Dufry project',
+                position: { x: 0, z: -75 },
+                size: { w: 68, h: 38, d: 38 },
+                baysCount: 6,
+                bayFacing: 'SOUTH', // +Z direction
+                workersCount: 6,
+                division: 'Crown Relocations & Information Mgmt',
+                capacity: '94% Utilization',
+                bays: []
+            },
+            WH1: {
+                id: 'WH1',
+                name: 'Warehouse 1 (Crown Tuen Mun High-Rise)',
+                shortName: 'Warehouse 1',
+                address: '6 Kin Fung Circuit, Tuen Mun, N.T.',
+                mapUrl: 'https://maps.app.goo.gl/WvBch6CMKMFXEf4W7',
+                position: { x: -115, z: 45 },
+                size: { w: 50, h: 42, d: 38 },
+                baysCount: 4,
+                bayFacing: 'EAST', // +X direction
+                workersCount: 3,
+                division: 'Crown Logistics & Multi-Story Vault',
+                capacity: '88% Utilization',
+                bays: []
+            },
+            WH2: {
+                id: 'WH2',
+                name: 'Warehouse 2 (Crown Data Ctr II)',
+                shortName: 'Warehouse 2',
+                address: '1 Leung Yip St, Yuen Long, N.T.',
+                mapUrl: 'https://maps.app.goo.gl/eF6fkVLsqMq7GgrX9',
+                position: { x: 115, z: 45 },
+                size: { w: 48, h: 40, d: 36 },
+                baysCount: 4,
+                bayFacing: 'WEST', // -X direction
+                workersCount: 3,
+                division: 'Crown Records & Media Storage',
+                capacity: '91% Utilization',
+                bays: []
+            },
+            WH3: {
+                id: 'WH3',
+                name: 'Warehouse 3 (Crown Data Ctr III)',
+                shortName: 'Warehouse 3',
+                address: '23 Tak Yip St, Yuen Long, N.T.',
+                mapUrl: 'https://maps.app.goo.gl/fTDhZ3xfQSyrwkQ86',
+                projectUrl: 'https://shipia-crownwarehouse.vercel.app/',
+                projectLabel: 'Aramex project',
+                position: { x: 0, z: 120 },
+                size: { w: 56, h: 42, d: 36 },
+                baysCount: 4,
+                bayFacing: 'NORTH', // -Z direction
+                workersCount: 3,
+                division: 'Crown Workspace & Fine Art Hub',
+                capacity: '86% Utilization',
+                bays: []
+            }
+        };
+
+        /********************************************************************
+         * 2. PROCEDURAL CANVAS TEXTURES (Match Reference Image Livery)
+         ********************************************************************/
+        function createCrownTruckTexture(type = 'TRUCK') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Vibrant Crown Red Base
+            ctx.fillStyle = '#e0111f';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Subtle lower body metallic trim line
+            ctx.fillStyle = '#b80a16';
+            ctx.fillRect(0, 440, canvas.width, 72);
+
+            // Top-right Green/White Eco Folded Page Corner (Exact detail from user's uploaded photo!)
+            ctx.save();
+            // Green eco triangle underneath fold
+            ctx.beginPath();
+            ctx.moveTo(830, 0);
+            ctx.lineTo(1024, 0);
+            ctx.lineTo(1024, 175);
+            ctx.closePath();
+            const gradGreen = ctx.createLinearGradient(850, 0, 1024, 160);
+            gradGreen.addColorStop(0, '#4ade80');
+            gradGreen.addColorStop(1, '#15803d');
+            ctx.fillStyle = gradGreen;
+            ctx.fill();
+
+            // White peeled paper curl flap
+            ctx.beginPath();
+            ctx.moveTo(830, 0);
+            ctx.quadraticCurveTo(910, 95, 1024, 175);
+            ctx.lineTo(865, 145);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = 'rgba(0,0,0,0.35)';
+            ctx.shadowBlur = 12;
+            ctx.fill();
+            ctx.restore();
+
+            // Bold White "CROWN" typography
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 128px Inter, Arial, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('CROWN', 95, 255);
+
+            // Subtitle: RELOCATIONS or LOGISTICS
+            ctx.font = '700 44px Inter, Arial, sans-serif';
+            ctx.letterSpacing = '10px';
+            const subText = type === 'TRUCK' ? 'RELOCATIONS' : 'LOGISTICS';
+            ctx.fillText(subText, 102, 325);
+
+            // Gold Crown Emblem next to CROWN text
+            drawGoldCrownIcon(ctx, 735, 200, 1.35);
+
+            // Circular White & Green Sustainability Emblem (seen on doors in photo)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(210, 405, 42, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#16a34a';
+            ctx.stroke();
+            ctx.fillStyle = '#15803d';
+            ctx.font = '800 18px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('ECO', 210, 402);
+            ctx.fillText('FLEET', 210, 422);
+            ctx.restore();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.anisotropy = 4;
+            return texture;
+        }
+
+        function drawGoldCrownIcon(ctx, cx, cy, scale = 1) {
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#fbbf24';
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 4;
+
+            // Crown base arch
+            ctx.beginPath();
+            ctx.roundRect(-55, 18, 110, 18, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            // Crown loops
+            ctx.beginPath();
+            ctx.moveTo(-50, 18);
+            ctx.bezierCurveTo(-65, -35, -15, -35, 0, 10);
+            ctx.bezierCurveTo(15, -35, 65, -35, 50, 18);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Center cross peak
+            ctx.beginPath();
+            ctx.arc(0, -35, 9, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function createBuildingSignTexture(title, subtitle) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Red Accent Bar
+            ctx.fillStyle = '#e0111f';
+            ctx.fillRect(0, 0, 36, canvas.height);
+            ctx.fillRect(0, canvas.height - 18, canvas.width, 18);
+
+            // Gold Crown
+            drawGoldCrownIcon(ctx, 130, 125, 1.3);
+
+            // Main Title
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 72px Inter, Arial, sans-serif';
+            ctx.fillText('CROWN WORLDWIDE', 235, 115);
+
+            // Facility Name
+            ctx.fillStyle = '#e0111f';
+            ctx.font = '800 44px Inter, Arial, sans-serif';
+            ctx.fillText(title.toUpperCase() + '  •  ' + subtitle, 238, 185);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // Red Crown Worldwide Group Banner Sign (matches the red signboards on Warehouse 1 photo)
+        function createCrownRedBannerTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 192;
+            const ctx = canvas.getContext('2d');
+
+            // Deep Crimson Red Signboard Base
+            ctx.fillStyle = '#b91c1c';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Subtle border
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 8;
+            ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+
+            // White "CROWN" Text
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 84px Inter, Arial, sans-serif';
+            ctx.fillText('CROWN', 28, 102);
+
+            // Gold Crown Logo on the Right
+            drawGoldCrownIcon(ctx, 432, 72, 0.78);
+
+            // Subtitle "WORLDWIDE GROUP"
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '700 32px Inter, Arial, sans-serif';
+            ctx.letterSpacing = '4px';
+            ctx.fillText('WORLDWIDE GROUP', 32, 152);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // Warehouse 1 Multi-Story Facade Texture (Slate Grey, Crimson Red Vertical Bands & Industrial Window Grids)
+        function createWH1TowerFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            // Slate Grey Industrial Concrete Base
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // Light Grey Right Wing Column & Vertical Accents (as seen in photo)
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(790, 0, 234, 1024);
+            ctx.fillRect(0, 0, 75, 1024);
+
+            // Signature Crimson Red Vertical Architectural Stripes
+            ctx.fillStyle = '#881d24';
+            ctx.fillRect(75, 0, 95, 1024);
+            ctx.fillRect(675, 0, 95, 1024);
+
+            // 8 Floors of Multi-Pane Industrial Windows with Red Spandrel Bands
+            const floors = 8;
+            const startY = 120;
+            const floorH = 105;
+
+            for (let f = 0; f < floors; f++) {
+                const y = startY + f * floorH;
+
+                // Crimson Red Under-Window Spandrel Band
+                ctx.fillStyle = '#881d24';
+                ctx.fillRect(195, y + 54, 460, 26);
+
+                // Dark Blue-Grey Multi-Pane Window Glass
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(195, y, 460, 52);
+
+                // Silver Aluminum Window Mullions / Grid
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 3;
+                for (let gx = 195; gx <= 655; gx += 46) {
+                    ctx.beginPath();
+                    ctx.moveTo(gx, y);
+                    ctx.lineTo(gx, y + 52);
+                    ctx.stroke();
+                }
+                ctx.beginPath();
+                ctx.moveTo(195, y + 26);
+                ctx.lineTo(655, y + 26);
+                ctx.stroke();
+
+                // Small vertical stairwell windows on right wing
+                ctx.fillStyle = '#1e293b';
+                ctx.fillRect(860, y + 10, 42, 36);
+                ctx.strokeRect(860, y + 10, 42, 36);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Warehouse 2 Upper Tower Facade Texture (Off-White/Cream Concrete with Symmetrical Small Square Windows & Blank Center Column)
+        function createWH2TowerFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            // Warm Off-White / Cream Concrete Base (matching uploaded Yuen Long photo)
+            ctx.fillStyle = '#ecebe6';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // Subtle horizontal floor slab seams & weathering lines
+            ctx.strokeStyle = '#dcdad2';
+            ctx.lineWidth = 2;
+            for (let y = 80; y < 1024; y += 92) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(1024, y);
+                ctx.stroke();
+            }
+
+            // Central vertical blank concrete shaft column borders (under the top Crown sign)
+            ctx.strokeStyle = '#d5d3ca';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(442, 0, 140, 1024);
+
+            // 10 Floors of Small Recessed Square Windows (Left 6 columns + Right 6 columns)
+            const leftCols = [65, 130, 195, 260, 325, 390];
+            const rightCols = [605, 670, 735, 800, 865, 930];
+            const allCols = [...leftCols, ...rightCols];
+
+            const floors = 10;
+            const startY = 115;
+            const floorH = 88;
+
+            for (let f = 0; f < floors; f++) {
+                const wy = startY + f * floorH;
+                allCols.forEach(wx => {
+                    // Recessed concrete window frame shadow
+                    ctx.fillStyle = '#b8b5aa';
+                    ctx.fillRect(wx - 3, wy - 3, 38, 38);
+
+                    // Dark green-grey industrial glass pane
+                    ctx.fillStyle = '#3b4d4b';
+                    ctx.fillRect(wx, wy, 32, 32);
+
+                    // Subtle cross window grille
+                    ctx.strokeStyle = '#94a3a0';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(wx, wy, 32, 32);
+                    ctx.beginPath();
+                    ctx.moveTo(wx + 16, wy);
+                    ctx.lineTo(wx + 16, wy + 32);
+                    ctx.moveTo(wx, wy + 16);
+                    ctx.lineTo(wx + 32, wy + 16);
+                    ctx.stroke();
+                });
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Warehouse 2 Lower Podium Base Texture (Wide Off-White Podium with Single Row of Square Lattice Windows)
+        function createWH2PodiumFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#e7e5de';
+            ctx.fillRect(0, 0, 1024, 256);
+
+            // Upper podium ledge trim shadow
+            ctx.fillStyle = '#cfcdc4';
+            ctx.fillRect(0, 0, 1024, 14);
+
+            // Row of 14 Square Lattice Windows across the Podium (as seen in foreground of photo)
+            for (let i = 0; i < 14; i++) {
+                const wx = 55 + i * 66;
+                const wy = 48;
+
+                // Bronze/brown outer frame
+                ctx.fillStyle = '#786b59';
+                ctx.fillRect(wx - 3, wy - 3, 44, 44);
+
+                // Dark glass interior
+                ctx.fillStyle = '#33413f';
+                ctx.fillRect(wx, wy, 38, 38);
+
+                // 3x3 metallic security lattice grid
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                for (let g = 1; g <= 2; g++) {
+                    ctx.beginPath();
+                    ctx.moveTo(wx + g * 12.6, wy);
+                    ctx.lineTo(wx + g * 12.6, wy + 38);
+                    ctx.moveTo(wx, wy + g * 12.6);
+                    ctx.lineTo(wx + 38, wy + g * 12.6);
+                    ctx.stroke();
+                }
+            }
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // Warehouse 3 Upper Tower Facade Texture (Renovated Crimson Red & Slate Grey Color-Blocked Pattern with Light Grey Vertical Mullion Columns)
+        function createWH3TowerFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            // Light Cool Grey Structural Frame & Vertical Pilaster Columns
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // 6 Main Window Bay Columns separated by light-grey vertical pilasters & 2 stairwell columns
+            const bayCols = [
+                { x: 34,  w: 112 },
+                { x: 162, w: 112 },
+                { x: 344, w: 120 },
+                { x: 482, w: 120 },
+                { x: 672, w: 138 },
+                { x: 828, w: 152 }
+            ];
+
+            // Alternating Crimson Red (#b91c2c) and Medium Slate Grey (#7c8594) Spandrel Color Blocks per Floor/Bay (matching uploaded photo)
+            const redPattern = [
+                [0, 0, 0, 1, 1, 0], // Top floor 0
+                [1, 0, 0, 0, 0, 1], // Floor 1
+                [0, 1, 1, 1, 0, 0], // Floor 2
+                [1, 0, 1, 0, 1, 0], // Floor 3
+                [0, 1, 0, 1, 0, 1], // Floor 4
+                [1, 0, 0, 1, 0, 1], // Floor 5
+                [0, 0, 1, 0, 1, 0], // Floor 6
+                [1, 1, 0, 1, 0, 1], // Floor 7
+                [0, 1, 0, 0, 1, 1]  // Bottom floor 8
+            ];
+
+            const floors = 9;
+            const startY = 64;
+            const floorH = 104;
+
+            for (let f = 0; f < floors; f++) {
+                const wy = startY + f * floorH;
+
+                bayCols.forEach((col, cIdx) => {
+                    const isRed = redPattern[f][cIdx] === 1;
+
+                    // Spandrel Panel Block (Crimson Red or Medium Slate Grey)
+                    ctx.fillStyle = isRed ? '#b91c2c' : '#7c8594';
+                    ctx.fillRect(col.x, wy, col.w, floorH - 4);
+
+                    // Horizontal Narrow Green-Tinted Strip Window at Top of Each Floor Bay
+                    const winY = wy + 10;
+                    const winH = 22;
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(col.x + 4, winY - 2, col.w - 8, winH + 4);
+
+                    ctx.fillStyle = '#3b6e6c';
+                    ctx.fillRect(col.x + 6, winY, col.w - 12, winH);
+
+                    // Silver vertical window mullions
+                    ctx.strokeStyle = '#cbd5e1';
+                    ctx.lineWidth = 2;
+                    for (let mx = col.x + 24; mx < col.x + col.w - 12; mx += 20) {
+                        ctx.beginPath();
+                        ctx.moveTo(mx, winY);
+                        ctx.lineTo(mx, wy + 10 + winH);
+                        ctx.stroke();
+                    }
+                });
+
+                // 2 Vertical Columns of Small Square Stairwell Windows in the Light-Grey Bands
+                const squareCols = [298, 626];
+                squareCols.forEach(sqX => {
+                    [wy + 14, wy + 58].forEach(sqY => {
+                        ctx.fillStyle = '#475569';
+                        ctx.fillRect(sqX - 2, sqY - 2, 22, 22);
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(sqX, sqY, 18, 18);
+                    });
+                });
+            }
+
+            // Subtle horizontal floor slab lines
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+            for (let f = 0; f <= floors; f++) {
+                const ly = startY + f * floorH - 2;
+                ctx.beginPath();
+                ctx.moveTo(0, ly);
+                ctx.lineTo(1024, ly);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Warehouse 3 Lower Podium Facade Texture (3-Story Vertical Crimson Red & Slate Grey Stripes with Horizontal Strip Windows)
+        function createWH3PodiumFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 320;
+            const ctx = canvas.getContext('2d');
+
+            // Base Medium Slate Grey Concrete
+            ctx.fillStyle = '#7c8594';
+            ctx.fillRect(0, 0, 1024, 320);
+
+            // Bold Vertical Crimson Red Stripes & Solid Crimson Right Wing (matching renovated photo)
+            ctx.fillStyle = '#b91c2c';
+            ctx.fillRect(65, 0, 80, 320);    // Left crimson stripe
+            ctx.fillRect(235, 0, 75, 320);   // Left-center crimson stripe
+            ctx.fillRect(420, 0, 155, 320);  // Center-left crimson band above portal
+            ctx.fillRect(645, 0, 110, 320);  // Center-right crimson band above portal
+            ctx.fillRect(855, 0, 169, 320);  // Far-right solid crimson corner wall
+
+            // Light Grey Vertical Accent Strips
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(145, 0, 38, 320);
+            ctx.fillRect(365, 0, 55, 320);
+
+            // Subtle horizontal podium floor seams
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.18)';
+            ctx.lineWidth = 2;
+            [105, 210].forEach(y => {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(1024, y);
+                ctx.stroke();
+            });
+
+            // 2 Rows of Horizontal Multi-Pane Strip Windows above the Entrance Portal
+            [52, 138].forEach(wy => {
+                // Main window band over portal area
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(458, wy - 3, 256, 30);
+                ctx.fillStyle = '#3b6e6c';
+                ctx.fillRect(461, wy, 250, 24);
+
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 2;
+                for (let mx = 486; mx < 711; mx += 25) {
+                    ctx.beginPath();
+                    ctx.moveTo(mx, wy);
+                    ctx.lineTo(mx, wy + 24);
+                    ctx.stroke();
+                }
+
+                // Left podium horizontal window band
+                ctx.fillStyle = '#334155';
+                ctx.fillRect(110, wy - 3, 180, 28);
+                ctx.fillStyle = '#3b6e6c';
+                ctx.fillRect(113, wy, 174, 22);
+            });
+
+            // Silver Industrial Louver Vent on Right Crimson Wall
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(910, 215, 58, 36);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(910, 215, 58, 36);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Red Entrance Portal Signboard for Warehouse 3 ("嘉柏中心三期 CROWN DATA CENTRE III")
+        function createWH3EntranceSignTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#d91c24';
+            ctx.fillRect(0, 0, 512, 128);
+
+            ctx.strokeStyle = '#b91c1c';
+            ctx.lineWidth = 6;
+            ctx.strokeRect(3, 3, 506, 122);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.font = '800 32px Inter, Arial, sans-serif';
+            ctx.fillText('嘉 柏 中 心 三 期', 256, 50);
+
+            ctx.font = '900 34px Inter, Arial, sans-serif';
+            ctx.fillText('CROWN DATA CENTRE III', 256, 98);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        // Main Warehouse (9-11 Yuen On St, Sha Tin) Off-White/Cream Facade Texture matching uploaded 3D Aerial Photo
+        function createMainWarehouseFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            // Warm Off-White / Cream Concrete Wall Base (matching uploaded 3D photo)
+            ctx.fillStyle = '#efede6';
+            ctx.fillRect(0, 0, 1024, 1024);
+
+            // Subtle vertical structural bay pilasters separating the 5 columns
+            ctx.fillStyle = '#e2dfd5';
+            const pilasterX = [72, 256, 440, 624, 808, 980];
+            pilasterX.forEach(px => {
+                ctx.fillRect(px, 0, 18, 1024);
+            });
+
+            // Subtle horizontal floor slab lines
+            ctx.strokeStyle = '#dcd8cd';
+            ctx.lineWidth = 3;
+            const floors = 6;
+            const startY = 140;
+            const floorH = 128;
+
+            for (let f = 0; f < floors; f++) {
+                const wy = startY + f * floorH;
+
+                // Left-edge vertical column of small square vent/stairwell openings (seen on far left of photo)
+                ctx.fillStyle = '#57534e';
+                ctx.fillRect(28, wy + 18, 24, 22);
+
+                // 5 Horizontal Recessed Narrow Window / Louver Slots per Floor
+                const slotCols = [
+                    { x: 102, w: 138 },
+                    { x: 286, w: 138 },
+                    { x: 470, w: 138 },
+                    { x: 654, w: 138 },
+                    { x: 838, w: 128 }
+                ];
+
+                slotCols.forEach(col => {
+                    // Upper recessed window lip shadow
+                    ctx.fillStyle = '#c7c2b6';
+                    ctx.fillRect(col.x - 3, wy + 14, col.w + 6, 30);
+
+                    // Dark recessed narrow strip window
+                    ctx.fillStyle = '#3f3f46';
+                    ctx.fillRect(col.x, wy + 18, col.w, 22);
+                });
+
+                // Horizontal slab seam
+                ctx.beginPath();
+                ctx.moveTo(0, wy + floorH - 12);
+                ctx.lineTo(1024, wy + floorH - 12);
+                ctx.stroke();
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Main Warehouse Projecting 2-Story Front-Right Annex Podium Facade Texture
+        function createMainPodiumFacadeTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Warm Off-White Concrete Podium Base
+            ctx.fillStyle = '#efede6';
+            ctx.fillRect(0, 0, 512, 256);
+
+            // Warm tan lower skirt band (seen along street edge in photo)
+            ctx.fillStyle = '#d6bfa3';
+            ctx.fillRect(0, 185, 512, 71);
+
+            // 2 Floors of Wide Dark Horizontal Strip Windows divided by central pilaster
+            [52, 118].forEach(wy => {
+                ctx.fillStyle = '#b8b2a6';
+                ctx.fillRect(28, wy - 3, 200, 34);
+                ctx.fillRect(262, wy - 3, 210, 34);
+
+                ctx.fillStyle = '#27272a';
+                ctx.fillRect(32, wy, 192, 28);
+                ctx.fillRect(266, wy, 202, 28);
+            });
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // White Pillar with Black Frame Texture for Main Warehouse Corner & Bay Pillars
+        function createWhitePillarBlackFrameTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Crisp White Pillar Base
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Bold Black Outer Frame & Architectural Mullion Grid
+            ctx.strokeStyle = '#111827';
+            ctx.lineWidth = 24;
+            ctx.strokeRect(12, 12, 488, 488);
+
+            // Horizontal & Vertical Black Frame Bars
+            ctx.lineWidth = 14;
+            [170, 340].forEach(pos => {
+                ctx.beginPath();
+                ctx.moveTo(12, pos);
+                ctx.lineTo(500, pos);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(pos, 12);
+                ctx.lineTo(pos, 500);
+                ctx.stroke();
+            });
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 4;
+            return tex;
+        }
+
+        // Red Polo Shirt Texture with Small Gold Crown Logo on Chest for All 15 Workers
+        function createWorkerRedPoloTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            // Pure Crown Red Polo Fabric
+            ctx.fillStyle = '#d90429';
+            ctx.fillRect(0, 0, 256, 256);
+
+            // Darker Red Polo Collar & Placket with 2 White Buttons
+            ctx.fillStyle = '#991b1b';
+            ctx.fillRect(114, 0, 28, 78);
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(128, 32, 4, 0, Math.PI * 2);
+            ctx.arc(128, 56, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Small Gold Crown Logo + "CROWN" text on Left Chest
+            drawGoldCrownIcon(ctx, 178, 62, 0.34);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '900 15px Inter, Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('CROWN', 178, 88);
+
+            return new THREE.CanvasTexture(canvas);
+        }
+
+        /********************************************************************
+         * 3. THREE.JS SCENE, DAYTIME SKY, LIGHTS & CAMERA CONTROLS
+         ********************************************************************/
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xdbeafe); // Crisp daytime sky blue
+        scene.fog = new THREE.FogExp2(0xdbeafe, 0.0016);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1500);
+        camera.position.set(0, 145, 225);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        // Bright Daytime Lighting
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x94a3b8, 0.85);
+        hemiLight.position.set(0, 300, 0);
+        scene.add(hemiLight);
+
+        const sunLight = new THREE.DirectionalLight(0xfffbeb, 1.15);
+        sunLight.position.set(140, 240, 120);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 20;
+        sunLight.shadow.camera.far = 650;
+        const d = 220;
+        sunLight.shadow.camera.left = -d;
+        sunLight.shadow.camera.right = d;
+        sunLight.shadow.camera.top = d;
+        sunLight.shadow.camera.bottom = -d;
+        sunLight.shadow.bias = -0.0005;
+        scene.add(sunLight);
+
+        // Shared Materials
+        const truckLiveryTex = createCrownTruckTexture('TRUCK');
+        const vanLiveryTex = createCrownTruckTexture('VAN');
+        const workerPoloTex = createWorkerRedPoloTexture();
+
+        const mats = {
+            crownRed: new THREE.MeshStandardMaterial({ color: 0xe0111f, roughness: 0.3, metalness: 0.15 }),
+            pureRedCeiling: new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.35, metalness: 0.1, emissive: 0x220000 }),
+            crownRedLiveryTruck: new THREE.MeshStandardMaterial({ map: truckLiveryTex, roughness: 0.35, metalness: 0.1 }),
+            crownRedLiveryVan: new THREE.MeshStandardMaterial({ map: vanLiveryTex, roughness: 0.35, metalness: 0.1 }),
+            cabinGlass: new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.1, metalness: 0.85 }),
+            darkTrim: new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.7 }),
+            silverRim: new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.7 }),
+            headlight: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+            taillight: new THREE.MeshBasicMaterial({ color: 0xff2222 }),
+            crateCardboard: new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 }),
+            crateCrown: new THREE.MeshStandardMaterial({ color: 0xfef3c7, roughness: 0.6 }),
+            hiVisVest: new THREE.MeshStandardMaterial({ color: 0xa3e635, roughness: 0.4 }),
+            crownShirt: new THREE.MeshStandardMaterial({ color: 0xd90429, roughness: 0.5 }),
+            crownPoloFront: new THREE.MeshStandardMaterial({ map: workerPoloTex, roughness: 0.5 }),
+            workerPants: new THREE.MeshStandardMaterial({ color: 0x1e3a8a, roughness: 0.7 }),
+            skinTone: new THREE.MeshStandardMaterial({ color: 0xfdba74, roughness: 0.6 }),
+            helmetYellow: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.2, metalness: 0.1 })
+        };
+
+        /********************************************************************
+         * 4. WORLD ENVIRONMENT, ROADS, ROUNDABOUT & LANDMARKS
+         ********************************************************************/
+        function buildEnvironment() {
+            const envGroup = new THREE.Group();
+
+            // Base Hong Kong Terrain
+            const groundGeo = new THREE.PlaneGeometry(900, 900);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.95 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            envGroup.add(ground);
+
+            // Subtle Blueprint / GIS Grid Overlay
+            const grid = new THREE.GridHelper(500, 50, 0x94a3b8, 0xbec8d6);
+            grid.position.y = 0.05;
+            envGroup.add(grid);
+
+            // Green Logistics Park Lawns
+            const parkMat = new THREE.MeshStandardMaterial({ color: 0x86efac, roughness: 0.9 });
+            const quadrants = [
+                [-65, -45, 70, 55], [65, -45, 70, 55],
+                [-65, 85, 70, 55],  [65, 85, 70, 55]
+            ];
+            quadrants.forEach(([x, z, w, d]) => {
+                const lawn = new THREE.Mesh(new THREE.BoxGeometry(w, 0.3, d), parkMat);
+                lawn.position.set(x, 0.15, z);
+                lawn.receiveShadow = true;
+                envGroup.add(lawn);
+            });
+
+            // Asphalt Highway Network connecting all 4 Warehouses
+            const roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85 });
+            const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+            const whiteLineMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+
+            // North-South Spine (x = 0, z from -65 to 110)
+            const nsRoad = new THREE.Mesh(new THREE.BoxGeometry(20, 0.22, 190), roadMat);
+            nsRoad.position.set(0, 0.11, 22);
+            nsRoad.receiveShadow = true;
+            envGroup.add(nsRoad);
+
+            // East-West Spine (z = 45, x from -105 to 105)
+            const ewRoad = new THREE.Mesh(new THREE.BoxGeometry(210, 0.24, 20), roadMat);
+            ewRoad.position.set(0, 0.12, 45);
+            ewRoad.receiveShadow = true;
+            envGroup.add(ewRoad);
+
+            // Outer Perimeter Express Ring
+            const ringSegments = [
+                { x: -95, z: -25, w: 14, d: 140 },
+                { x: 95,  z: -25, w: 14, d: 140 }
+            ];
+            ringSegments.forEach(s => {
+                const seg = new THREE.Mesh(new THREE.BoxGeometry(s.w, 0.2, s.d), roadMat);
+                seg.position.set(s.x, 0.1, s.z);
+                seg.receiveShadow = true;
+                envGroup.add(seg);
+            });
+
+            // Center Logistics Hub Roundabout at (0, 45)
+            const roundaboutAsphalt = new THREE.Mesh(new THREE.CylinderGeometry(24, 24, 0.28, 36), roadMat);
+            roundaboutAsphalt.position.set(0, 0.14, 45);
+            roundaboutAsphalt.receiveShadow = true;
+            envGroup.add(roundaboutAsphalt);
+
+            const islandMesh = new THREE.Mesh(new THREE.CylinderGeometry(9, 10, 1.2, 32), mats.crownRed);
+            islandMesh.position.set(0, 0.6, 45);
+            islandMesh.castShadow = true;
+            envGroup.add(islandMesh);
+
+            // Gold Crown Monument in center of Roundabout
+            const monumentRing = new THREE.Mesh(
+                new THREE.TorusGeometry(4.2, 0.45, 16, 32),
+                new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.6, roughness: 0.2 })
+            );
+            monumentRing.position.set(0, 5.2, 45);
+            monumentRing.castShadow = true;
+            envGroup.add(monumentRing);
+            window.crownMonument = monumentRing;
+
+            // Dashed Road Markings
+            for (let z = -50; z <= 100; z += 10) {
+                if (Math.abs(z - 45) < 18) continue;
+                const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 4.5), yellowLineMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(0, 0.26, z);
+                envGroup.add(dash);
+            }
+            for (let x = -85; x <= 85; x += 10) {
+                if (Math.abs(x) < 18) continue;
+                const dash = new THREE.Mesh(new THREE.PlaneGeometry(4.5, 0.4), yellowLineMat);
+                dash.rotation.x = -Math.PI / 2;
+                dash.position.set(x, 0.26, 45);
+                envGroup.add(dash);
+            }
+
+            // Decorative Trees around facilities
+            const trunkGeo = new THREE.CylinderGeometry(0.4, 0.6, 3, 7);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+            const foliageGeo = new THREE.DodecahedronGeometry(2.6, 1);
+            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.8 });
+
+            const treeCoords = [
+                [-50, -35], [-65, -35], [-80, -35], [50, -35], [65, -35], [80, -35],
+                [-50, 75], [-65, 75], [50, 75], [65, 75],
+                [-42, -95], [42, -95], [-42, 130], [42, 130]
+            ];
+            treeCoords.forEach(([tx, tz]) => {
+                const tree = new THREE.Group();
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.y = 1.5;
+                trunk.castShadow = true;
+                const leaves = new THREE.Mesh(foliageGeo, foliageMat);
+                leaves.position.y = 4.2;
+                leaves.castShadow = true;
+                tree.add(trunk, leaves);
+                tree.position.set(tx, 0, tz);
+                envGroup.add(tree);
+            });
+
+            scene.add(envGroup);
+        }
+
+        /********************************************************************
+         * 5. BUILD 4 CROWN WORLDWIDE WAREHOUSES & LOADING BAYS
+         ********************************************************************/
+        const allLoadingBays = [];
+
+        // Custom Builder for Warehouse 1 matching the uploaded Tuen Mun High-Rise Photo
+        function buildWH1CustomBuilding(group, fac) {
+            const { w, h, d } = fac.size;
+            const towerFacadeTex = createWH1TowerFacadeTexture();
+            const redBannerTex = createCrownRedBannerTexture();
+
+            const slateGreyMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.7 });
+            const crimsonRedMat = new THREE.MeshStandardMaterial({ color: 0x881d24, roughness: 0.6 });
+            const whiteBaseMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+            const facadeMat = new THREE.MeshStandardMaterial({ map: towerFacadeTex, roughness: 0.6 });
+            const bannerMat = new THREE.MeshBasicMaterial({ map: redBannerTex });
+
+            // 1. Main 10-Story High-Rise Industrial Tower (with Slate Grey & Crimson Striped Facade)
+            const towerW = w * 0.76;
+            const towerD = d * 0.84;
+            const towerMats = [
+                facadeMat,             // East (+X) facing road & loading bays
+                facadeMat,             // West (-X)
+                mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                slateGreyMat,          // Bottom
+                facadeMat,             // South (+Z)
+                facadeMat              // North (-Z)
+            ];
+            const mainTower = new THREE.Mesh(new THREE.BoxGeometry(towerW, h, towerD), towerMats);
+            mainTower.position.set(-w * 0.08, h / 2, -d * 0.06);
+            mainTower.castShadow = true;
+            mainTower.receiveShadow = true;
+            group.add(mainTower);
+
+            // Pure Red Ceiling Cap on Main Tower
+            const towerRedRoof = new THREE.Mesh(new THREE.BoxGeometry(towerW + 0.4, 0.8, towerD + 0.4), mats.pureRedCeiling);
+            towerRedRoof.position.set(-w * 0.08, h + 0.4, -d * 0.06);
+            group.add(towerRedRoof);
+
+            // 2. Taller Central Corner Core Pillar with Crimson & Slate Stripes (seen at center peak of photo)
+            const coreW = 11;
+            const coreH = h + 5.5;
+            const coreD = 11;
+            const coreMats = [
+                crimsonRedMat, crimsonRedMat,
+                mats.pureRedCeiling, // Pure Red Top Ceiling!
+                slateGreyMat,
+                slateGreyMat, crimsonRedMat
+            ];
+            const coreTower = new THREE.Mesh(new THREE.BoxGeometry(coreW, coreH, coreD), coreMats);
+            coreTower.position.set(w * 0.12, coreH / 2, d * 0.18);
+            coreTower.castShadow = true;
+            group.add(coreTower);
+
+            const coreRedRoof = new THREE.Mesh(new THREE.BoxGeometry(coreW + 0.3, 0.7, coreD + 0.3), mats.pureRedCeiling);
+            coreRedRoof.position.set(w * 0.12, coreH + 0.35, d * 0.18);
+            group.add(coreRedRoof);
+
+            // 3. Stepped 4-Story Lower Corner Annex Podium (Foreground of photo with Crimson Red & Grey vertical bands)
+            const podiumW = 24;
+            const podiumH = 19.5;
+            const podiumD = 20;
+            const podiumMats = [
+                crimsonRedMat, slateGreyMat,
+                mats.pureRedCeiling, // Pure Red Podium Ceiling!
+                slateGreyMat,
+                crimsonRedMat, slateGreyMat
+            ];
+            const podium = new THREE.Mesh(new THREE.BoxGeometry(podiumW, podiumH, podiumD), podiumMats);
+            podium.position.set(w * 0.18, podiumH / 2, d * 0.28);
+            podium.castShadow = true;
+            podium.receiveShadow = true;
+            group.add(podium);
+
+            const podiumRedRoof = new THREE.Mesh(new THREE.BoxGeometry(podiumW + 0.4, 0.6, podiumD + 0.4), mats.pureRedCeiling);
+            podiumRedRoof.position.set(w * 0.18, podiumH + 0.3, d * 0.28);
+            group.add(podiumRedRoof);
+
+            // White Street-Level Base Trim & Recessed Crimson Entrance (seen at bottom of podium in photo)
+            const whiteBase = new THREE.Mesh(new THREE.BoxGeometry(podiumW + 0.5, 5.2, podiumD + 0.5), whiteBaseMat);
+            whiteBase.position.set(w * 0.18, 2.6, d * 0.28);
+            group.add(whiteBase);
+
+            // 3-Story Grid Windows on the Crimson Podium Corner
+            for (let py = 7.5; py <= 14.5; py += 3.5) {
+                const winPodium = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.1, 7.5), mats.cabinGlass);
+                winPodium.position.set(w * 0.18 + podiumW / 2 + 0.1, py, d * 0.28);
+                group.add(winPodium);
+
+                const winPodiumSouth = new THREE.Mesh(new THREE.BoxGeometry(7.5, 2.1, 0.4), mats.cabinGlass);
+                winPodiumSouth.position.set(w * 0.18, py, d * 0.28 + podiumD / 2 + 0.1);
+                group.add(winPodiumSouth);
+            }
+
+            // 4. Two Red "CROWN WORLDWIDE GROUP" Signboards (1 on Lower Podium, 1 High on Upper Tower Facade)
+            const podiumSign = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 3.6), bannerMat);
+            podiumSign.position.set(w * 0.18, podiumH - 2.1, d * 0.28 + podiumD / 2 + 0.25);
+            group.add(podiumSign);
+
+            const podiumSignEast = new THREE.Mesh(new THREE.PlaneGeometry(10.5, 3.6), bannerMat);
+            podiumSignEast.position.set(w * 0.18 + podiumW / 2 + 0.25, podiumH - 2.1, d * 0.28);
+            podiumSignEast.rotation.y = Math.PI / 2;
+            group.add(podiumSignEast);
+
+            const highTowerSign = new THREE.Mesh(new THREE.PlaneGeometry(18, 5.8), bannerMat);
+            highTowerSign.position.set(-w * 0.08 + towerW / 2 + 0.25, h - 5.2, -d * 0.06);
+            highTowerSign.rotation.y = Math.PI / 2;
+            group.add(highTowerSign);
+        }
+
+        // Custom Builder for Warehouse 2 matching the uploaded Yuen Long Cream Multi-Story Vault Building Photo
+        function buildWH2CustomBuilding(group, fac) {
+            const { w, h, d } = fac.size;
+            const towerTex = createWH2TowerFacadeTexture();
+            const podiumTex = createWH2PodiumFacadeTexture();
+            const redBannerTex = createCrownRedBannerTexture();
+
+            const creamWallMat = new THREE.MeshStandardMaterial({ color: 0xecebe6, roughness: 0.75 });
+            const towerFacadeMat = new THREE.MeshStandardMaterial({ map: towerTex, roughness: 0.7 });
+            const podiumFacadeMat = new THREE.MeshStandardMaterial({ map: podiumTex, roughness: 0.75 });
+            const bannerMat = new THREE.MeshBasicMaterial({ map: redBannerTex });
+
+            // 1. Wide Lower 2-Story Podium Base (spans full footprint with row of square lattice windows)
+            const podiumW = w;
+            const podiumH = 10.5;
+            const podiumD = d + 6;
+            const podiumMats = [
+                podiumFacadeMat,       // East (+X)
+                podiumFacadeMat,       // West (-X) facing loading bays & road
+                mats.pureRedCeiling,   // Top Ceiling of Podium (Pure Red!)
+                creamWallMat,          // Bottom
+                podiumFacadeMat,       // South (+Z)
+                podiumFacadeMat        // North (-Z)
+            ];
+            const podium = new THREE.Mesh(new THREE.BoxGeometry(podiumW, podiumH, podiumD), podiumMats);
+            podium.position.set(0, podiumH / 2, 0);
+            podium.castShadow = true;
+            podium.receiveShadow = true;
+            group.add(podium);
+
+            // Pure Red Podium Roof Cap
+            const podiumRedRoof = new THREE.Mesh(new THREE.BoxGeometry(podiumW + 0.4, 0.45, podiumD + 0.4), mats.pureRedCeiling);
+            podiumRedRoof.position.set(0, podiumH + 0.22, 0);
+            group.add(podiumRedRoof);
+
+            // Row of AC chiller units sitting on the podium ledge (visible in reference photo)
+            const acMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.5 });
+            for (let z = -podiumD * 0.36; z <= podiumD * 0.36; z += 3.2) {
+                const acUnit = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.1, 1.8), acMat);
+                acUnit.position.set(-w * 0.36, podiumH + 0.9, z);
+                group.add(acUnit);
+            }
+
+            // 2. Tall 10-Story Upper Cream Vault Tower set back on the podium
+            const towerW = w * 0.78;
+            const towerH = h - podiumH;
+            const towerD = d * 0.86;
+            const towerMats = [
+                towerFacadeMat,        // East (+X)
+                towerFacadeMat,        // West (-X) main front facade facing road
+                mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                creamWallMat,          // Bottom
+                towerFacadeMat,        // South (+Z)
+                towerFacadeMat         // North (-Z)
+            ];
+            const upperTower = new THREE.Mesh(new THREE.BoxGeometry(towerW, towerH, towerD), towerMats);
+            upperTower.position.set(w * 0.05, podiumH + towerH / 2, 0);
+            upperTower.castShadow = true;
+            upperTower.receiveShadow = true;
+            group.add(upperTower);
+
+            // Pure Red Main Rooftop Ceiling Cap on Upper Tower
+            const towerRedRoof = new THREE.Mesh(new THREE.BoxGeometry(towerW + 0.5, 0.7, towerD + 0.5), mats.pureRedCeiling);
+            towerRedRoof.position.set(w * 0.05, h + 0.35, 0);
+            group.add(towerRedRoof);
+
+            // 3. Top-Center Red "CROWN WORLDWIDE GROUP" Signboard at top of the central blank column (matches photo)
+            const topCenterSignWest = new THREE.Mesh(new THREE.PlaneGeometry(8.8, 3.1), bannerMat);
+            topCenterSignWest.position.set(w * 0.05 - towerW / 2 - 0.2, h - 2.6, 0);
+            topCenterSignWest.rotation.y = -Math.PI / 2;
+            group.add(topCenterSignWest);
+
+            const topCenterSignSouth = new THREE.Mesh(new THREE.PlaneGeometry(8.8, 3.1), bannerMat);
+            topCenterSignSouth.position.set(w * 0.05, h - 2.6, towerD / 2 + 0.2);
+            group.add(topCenterSignSouth);
+        }
+
+        // Custom Builder for Main Warehouse (Crown Worldwide Building, 9-11 Yuen On St, Sha Tin) matching uploaded 3D Aerial Photo
+        function buildMainCustomBuilding(group, fac) {
+            const { w, h, d } = fac.size;
+            const mainFacadeTex = createMainWarehouseFacadeTexture();
+            const podiumFacadeTex = createMainPodiumFacadeTexture();
+            const redBannerTex = createCrownRedBannerTexture();
+
+            const creamWallMat = new THREE.MeshStandardMaterial({ color: 0xefede6, roughness: 0.72 });
+            const facadeMat = new THREE.MeshStandardMaterial({ map: mainFacadeTex, roughness: 0.68 });
+            const podiumMat = new THREE.MeshStandardMaterial({ map: podiumFacadeTex, roughness: 0.7 });
+            const bannerMat = new THREE.MeshBasicMaterial({ map: redBannerTex });
+            const darkBayMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+
+            // 1. Main Rear 6-Story Off-White Rectangular Warehouse Block (with 5 Columns of Recessed Strip Windows)
+            const mainW = w;
+            const mainH = h;
+            const mainD = d * 0.68;
+            const mainZ = -d * 0.16;
+            const mainMats = [
+                facadeMat,             // East (+X)
+                creamWallMat,          // West (-X)
+                mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                creamWallMat,          // Bottom
+                facadeMat,             // South (+Z) facing courtyard & projecting podium
+                facadeMat              // North (-Z)
+            ];
+            const mainBlock = new THREE.Mesh(new THREE.BoxGeometry(mainW, mainH, mainD), mainMats);
+            mainBlock.position.set(0, mainH / 2, mainZ);
+            mainBlock.castShadow = true;
+            mainBlock.receiveShadow = true;
+            group.add(mainBlock);
+
+            // Pure Red Main Rooftop Ceiling Cap + Perimeter Parapet Wall (as seen on top of main block)
+            const mainRedRoof = new THREE.Mesh(new THREE.BoxGeometry(mainW + 0.4, 0.6, mainD + 0.4), mats.pureRedCeiling);
+            mainRedRoof.position.set(0, mainH + 0.3, mainZ);
+            group.add(mainRedRoof);
+
+            // Rooftop Mechanical Penthouse & Chiller Units on Main Roof
+            const roofPenthouse = new THREE.Mesh(new THREE.BoxGeometry(mainW * 0.45, 2.4, mainD * 0.38), [
+                creamWallMat, creamWallMat,
+                mats.pureRedCeiling,
+                creamWallMat, creamWallMat, creamWallMat
+            ]);
+            roofPenthouse.position.set(w * 0.1, mainH + 1.2, mainZ);
+            group.add(roofPenthouse);
+
+            // 2. Top-Right Projecting Signboard Box with Red "CROWN WORLDWIDE GROUP" Banner (matches photo position)
+            const signBoxW = 15.5;
+            const signBoxH = 6.2;
+            const signBoxD = 2.2;
+            const signBoxX = w * 0.22;
+            const signBoxY = mainH - 3.6;
+            const signBoxZ = mainZ + mainD / 2 + 0.9;
+
+            const signBox = new THREE.Mesh(new THREE.BoxGeometry(signBoxW, signBoxH, signBoxD), [
+                creamWallMat, creamWallMat,
+                mats.pureRedCeiling,
+                creamWallMat, creamWallMat, creamWallMat
+            ]);
+            signBox.position.set(signBoxX, signBoxY, signBoxZ);
+            signBox.castShadow = true;
+            group.add(signBox);
+
+            const highSignSouth = new THREE.Mesh(new THREE.PlaneGeometry(14.4, 4.8), bannerMat);
+            highSignSouth.position.set(signBoxX, signBoxY, signBoxZ + signBoxD / 2 + 0.12);
+            group.add(highSignSouth);
+
+            // 3. Projecting 2-Story Front-Right Annex Podium with Chamfered Glass Corner (Foreground Right of Photo)
+            const annexW = w * 0.48;
+            const annexH = 12.5;
+            const annexD = d * 0.56;
+            const annexX = w * 0.22;
+            const annexZ = mainZ + mainD / 2 + annexD / 2 - 1.2;
+
+            const annexBlock = new THREE.Mesh(new THREE.BoxGeometry(annexW, annexH, annexD), [
+                podiumMat,             // East (+X)
+                creamWallMat,          // West (-X) facing the loading bay courtyard
+                mats.pureRedCeiling,   // Top Ceiling of Podium (Pure Red!)
+                creamWallMat,          // Bottom
+                podiumMat,             // South (+Z) facing Yuen On Street
+                creamWallMat           // North (-Z)
+            ]);
+            annexBlock.position.set(annexX, annexH / 2, annexZ);
+            annexBlock.castShadow = true;
+            annexBlock.receiveShadow = true;
+            group.add(annexBlock);
+
+            // Pure Red Ceiling Cap on the 2-Story Front-Right Annex Podium
+            const annexRedRoof = new THREE.Mesh(new THREE.BoxGeometry(annexW + 0.4, 0.45, annexD + 0.4), mats.pureRedCeiling);
+            annexRedRoof.position.set(annexX, annexH + 0.22, annexZ);
+            group.add(annexRedRoof);
+
+            // White Pillar with Black Frame on Front-Right Corner of Annex Podium
+            const whiteBlackFrameTex = createWhitePillarBlackFrameTexture();
+            const whiteBlackFrameMat = new THREE.MeshStandardMaterial({ map: whiteBlackFrameTex, roughness: 0.45 });
+
+            const cornerChamfer = new THREE.Mesh(new THREE.CylinderGeometry(5.2, 5.2, annexH - 0.4, 6), [
+                whiteBlackFrameMat,
+                mats.pureRedCeiling,
+                creamWallMat
+            ]);
+            cornerChamfer.position.set(annexX + annexW / 2 - 1.8, annexH / 2, annexZ + annexD / 2 - 1.8);
+            cornerChamfer.rotation.y = Math.PI / 4;
+            group.add(cornerChamfer);
+
+            // Rooftop Chiller & Pipework Details on the 2-Story Podium Roof (visible next to map pin in photo)
+            const chillerGroup = new THREE.Mesh(new THREE.BoxGeometry(5.5, 1.8, 4.2), creamWallMat);
+            chillerGroup.position.set(annexX - 3, annexH + 1.1, annexZ - 2.5);
+            group.add(chillerGroup);
+
+            // 4. Front-Left Recessed Ground-Floor Loading Bay Openings & Left Courtyard Perimeter Wall (Foreground Left of Photo)
+            const recessOpening = new THREE.Mesh(new THREE.PlaneGeometry(w * 0.44, 7.5), darkBayMat);
+            recessOpening.position.set(-w * 0.24, 3.8, mainZ + mainD / 2 + 0.18);
+            group.add(recessOpening);
+
+            // Central White Pillar with Black Frame dividing the recessed loading bay portals
+            const bayPillar = new THREE.Mesh(new THREE.BoxGeometry(2.4, 8.2, 1.8), whiteBlackFrameMat);
+            bayPillar.position.set(-w * 0.24, 4.1, mainZ + mainD / 2 + 0.45);
+            group.add(bayPillar);
+
+            // Left White Courtyard Perimeter Wall enclosing the loading yard on the left (-X edge)
+            const leftYardWall = new THREE.Mesh(new THREE.BoxGeometry(1.6, 11.5, annexD + 4), [
+                creamWallMat, creamWallMat,
+                mats.pureRedCeiling,
+                creamWallMat, creamWallMat, creamWallMat
+            ]);
+            leftYardWall.position.set(-w / 2 + 0.8, 5.75, annexZ);
+            leftYardWall.castShadow = true;
+            group.add(leftYardWall);
+        }
+
+        // Custom Builder for Warehouse 3 matching the Newly Renovated Crimson Red & Grey Crown Data Centre III Photo
+        function buildWH3CustomBuilding(group, fac) {
+            const { w, h, d } = fac.size;
+            const towerTex = createWH3TowerFacadeTexture();
+            const podiumTex = createWH3PodiumFacadeTexture();
+            const redBannerTex = createCrownRedBannerTexture();
+            const entranceSignTex = createWH3EntranceSignTexture();
+
+            const slateGreyMat = new THREE.MeshStandardMaterial({ color: 0x7c8594, roughness: 0.68 });
+            const crimsonWallMat = new THREE.MeshStandardMaterial({ color: 0xb91c2c, roughness: 0.62 });
+            const towerFacadeMat = new THREE.MeshStandardMaterial({ map: towerTex, roughness: 0.65 });
+            const podiumFacadeMat = new THREE.MeshStandardMaterial({ map: podiumTex, roughness: 0.68 });
+            const bannerMat = new THREE.MeshBasicMaterial({ map: redBannerTex });
+            const entranceSignMat = new THREE.MeshBasicMaterial({ map: entranceSignTex });
+
+            // 1. Wide 3-Story Lower Podium Base (Vertical Crimson Red & Slate Grey Stripes)
+            const podiumW = w * 0.88;
+            const podiumH = 13.5;
+            const podiumD = d;
+            const podiumMats = [
+                podiumFacadeMat,       // East (+X)
+                crimsonWallMat,        // West (-X) solid crimson-red side wing
+                mats.pureRedCeiling,   // Top Ceiling of Podium (Pure Red!)
+                slateGreyMat,          // Bottom
+                podiumFacadeMat,       // South (+Z)
+                podiumFacadeMat        // North (-Z) main front facing road & loading bays
+            ];
+            const podium = new THREE.Mesh(new THREE.BoxGeometry(podiumW, podiumH, podiumD), podiumMats);
+            podium.position.set(w * 0.05, podiumH / 2, 0);
+            podium.castShadow = true;
+            podium.receiveShadow = true;
+            group.add(podium);
+
+            // Pure Red Podium Roof Cap
+            const podiumRedRoof = new THREE.Mesh(new THREE.BoxGeometry(podiumW + 0.4, 0.45, podiumD + 0.4), mats.pureRedCeiling);
+            podiumRedRoof.position.set(w * 0.05, podiumH + 0.22, 0);
+            group.add(podiumRedRoof);
+
+            // 2. Solid Crimson-Red Angled/Curved Right-Hand Podium Wing (seen on the right foreground of the new photo)
+            const curveRadius = d * 0.48;
+            const curvedWingGeo = new THREE.CylinderGeometry(curveRadius * 0.88, curveRadius, podiumH, 16);
+            const curvedWingMats = [
+                crimsonWallMat,        // Solid Crimson Red outer wall
+                mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                slateGreyMat           // Bottom
+            ];
+            const curvedWing = new THREE.Mesh(curvedWingGeo, curvedWingMats);
+            curvedWing.position.set(-w * 0.36, podiumH / 2, -d * 0.02);
+            curvedWing.castShadow = true;
+            curvedWing.receiveShadow = true;
+            group.add(curvedWing);
+
+            // 3. Red "嘉柏中心三期 CROWN DATA CENTRE III" Entrance Portal Frame on the Podium Front (-Z face)
+            const portalX = -w * 0.14;
+            const portalZ = -d / 2 - 0.35;
+            const portalFascia = new THREE.Mesh(new THREE.BoxGeometry(13.5, 2.5, 1.2), mats.crownRed);
+            portalFascia.position.set(portalX, 6.6, portalZ);
+            portalFascia.castShadow = true;
+            group.add(portalFascia);
+
+            const portalSign = new THREE.Mesh(new THREE.PlaneGeometry(12.6, 2.2), entranceSignMat);
+            portalSign.position.set(portalX, 6.6, portalZ - 0.65);
+            portalSign.rotation.y = Math.PI;
+            group.add(portalSign);
+
+            // Dark Recessed Vehicular Bay Entrance under the Red Portal Sign
+            const portalRecess = new THREE.Mesh(
+                new THREE.PlaneGeometry(11.8, 5.4),
+                new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.9 })
+            );
+            portalRecess.position.set(portalX, 2.7, -d / 2 - 0.18);
+            portalRecess.rotation.y = Math.PI;
+            group.add(portalRecess);
+
+            // 4. Tall 9-Story Setback Upper Tower (Renovated Crimson Red & Slate Grey Color-Blocked Facade)
+            const towerW = w * 0.76;
+            const towerH = h - podiumH;
+            const towerD = d * 0.82;
+            const towerMats = [
+                towerFacadeMat,        // East (+X)
+                towerFacadeMat,        // West (-X)
+                mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                slateGreyMat,          // Bottom
+                towerFacadeMat,        // South (+Z)
+                towerFacadeMat         // North (-Z) main front facade
+            ];
+            const upperTower = new THREE.Mesh(new THREE.BoxGeometry(towerW, towerH, towerD), towerMats);
+            upperTower.position.set(w * 0.08, podiumH + towerH / 2, d * 0.04);
+            upperTower.castShadow = true;
+            upperTower.receiveShadow = true;
+            group.add(upperTower);
+
+            // Pure Red Main Rooftop Ceiling Cap on Upper Tower
+            const towerRedRoof = new THREE.Mesh(new THREE.BoxGeometry(towerW + 0.5, 0.7, towerD + 0.5), mats.pureRedCeiling);
+            towerRedRoof.position.set(w * 0.08, h + 0.35, d * 0.04);
+            group.add(towerRedRoof);
+
+            // 5. Raised Roof Parapet & Red "CROWN WORLDWIDE GROUP" Signboard at Top-Center of Upper Tower (as in photo)
+            const signParapet = new THREE.Mesh(new THREE.BoxGeometry(10.6, 1.8, 2.5), slateGreyMat);
+            signParapet.position.set(w * 0.12, h + 0.9, d * 0.04 - towerD / 2 + 1.3);
+            group.add(signParapet);
+
+            const parapetRedCap = new THREE.Mesh(new THREE.BoxGeometry(10.8, 0.35, 2.7), mats.pureRedCeiling);
+            parapetRedCap.position.set(w * 0.12, h + 1.9, d * 0.04 - towerD / 2 + 1.3);
+            group.add(parapetRedCap);
+
+            const highSignNorth = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 3.2), bannerMat);
+            highSignNorth.position.set(w * 0.12, h - 1.1, d * 0.04 - towerD / 2 - 0.2);
+            highSignNorth.rotation.y = Math.PI;
+            group.add(highSignNorth);
+
+            const highSignSouth = new THREE.Mesh(new THREE.PlaneGeometry(9.6, 3.2), bannerMat);
+            highSignSouth.position.set(w * 0.12, h - 1.1, d * 0.04 + towerD / 2 + 0.2);
+            group.add(highSignSouth);
+        }
+
+        function buildWarehouses() {
+            const concreteMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.75 });
+            const apronMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9 });
+            const bayInteriorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+            const safetyLineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+
+            Object.values(FACILITIES).forEach(fac => {
+                const group = new THREE.Group();
+                group.position.set(fac.position.x, 0, fac.position.z);
+
+                const { w, h, d } = fac.size;
+
+                // 1. Concrete Loading Apron Yard in front of building
+                const apronW = fac.bayFacing === 'SOUTH' || fac.bayFacing === 'NORTH' ? w + 24 : d + 40;
+                const apronD = fac.bayFacing === 'SOUTH' || fac.bayFacing === 'NORTH' ? d + 40 : w + 24;
+                const apron = new THREE.Mesh(new THREE.BoxGeometry(apronW, 0.24, apronD), apronMat);
+                apron.position.y = 0.12;
+                apron.receiveShadow = true;
+                group.add(apron);
+
+                // Orient sign and loading bays based on bayFacing direction
+                let dirVec = new THREE.Vector3(0, 0, 1);
+                if (fac.bayFacing === 'SOUTH') dirVec.set(0, 0, 1);
+                else if (fac.bayFacing === 'NORTH') dirVec.set(0, 0, -1);
+                else if (fac.bayFacing === 'EAST') dirVec.set(1, 0, 0);
+                else if (fac.bayFacing === 'WEST') dirVec.set(-1, 0, 0);
+
+                if (fac.id === 'MAIN') {
+                    // Build custom multi-story stepped Sha Tin HQ Main Warehouse (Crown Worldwide Building)
+                    buildMainCustomBuilding(group, fac);
+                } else if (fac.id === 'WH1') {
+                    // Build custom multi-story stepped grey & crimson Warehouse 1 from uploaded photo
+                    buildWH1CustomBuilding(group, fac);
+                } else if (fac.id === 'WH2') {
+                    // Build custom multi-story off-white/cream Warehouse 2 with wide lower podium & small square window grid
+                    buildWH2CustomBuilding(group, fac);
+                } else if (fac.id === 'WH3') {
+                    // Build custom multi-story crimson & grey Warehouse 3 (Crown Data Centre III) with curved podium wing & red entrance portal
+                    buildWH3CustomBuilding(group, fac);
+                } else {
+                    // 2. Main Industrial Warehouse Building Structure with PURE RED Ceiling
+                    const wallAndRoofMats = [
+                        concreteMat,           // Right
+                        concreteMat,           // Left
+                        mats.pureRedCeiling,   // Top Ceiling (Pure Red!)
+                        concreteMat,           // Bottom
+                        concreteMat,           // Front
+                        concreteMat            // Back
+                    ];
+                    const bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallAndRoofMats);
+                    bldg.position.y = h / 2;
+                    bldg.castShadow = true;
+                    bldg.receiveShadow = true;
+                    group.add(bldg);
+
+                    // 3. Pure Red Rooftop Ceiling Cap & Perimeter Crown Red Roof Band
+                    const roofBand = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 2.6, d + 0.6), mats.pureRedCeiling);
+                    roofBand.position.y = h - 1.2;
+                    roofBand.castShadow = true;
+                    group.add(roofBand);
+
+                    const pureRedTopSlab = new THREE.Mesh(new THREE.BoxGeometry(w + 0.8, 0.6, d + 0.8), mats.pureRedCeiling);
+                    pureRedTopSlab.position.y = h + 0.3;
+                    group.add(pureRedTopSlab);
+
+                    // Upper Office Windows Clerestory
+                    const winBand = new THREE.Mesh(new THREE.BoxGeometry(w + 0.3, 3.2, d + 0.3), mats.cabinGlass);
+                    winBand.position.y = h - 5.5;
+                    group.add(winBand);
+
+                    // Billboard Sign on Building Facade
+                    const signTex = createBuildingSignTexture(fac.shortName, fac.id === 'MAIN' ? 'SHA TIN HQ' : fac.id);
+                    const signMat = new THREE.MeshBasicMaterial({ map: signTex });
+                    const signGeo = new THREE.PlaneGeometry(Math.min(w * 0.72, 38), 6.5);
+                    const signMesh = new THREE.Mesh(signGeo, signMat);
+
+                    if (fac.bayFacing === 'SOUTH') {
+                        signMesh.position.set(0, h - 5.5, d / 2 + 0.25);
+                    } else if (fac.bayFacing === 'NORTH') {
+                        signMesh.position.set(0, h - 5.5, -d / 2 - 0.25);
+                        signMesh.rotation.y = Math.PI;
+                    } else if (fac.bayFacing === 'EAST') {
+                        signMesh.position.set(w / 2 + 0.25, h - 5.5, 0);
+                        signMesh.rotation.y = Math.PI / 2;
+                    } else if (fac.bayFacing === 'WEST') {
+                        signMesh.position.set(-w / 2 - 0.25, h - 5.5, 0);
+                        signMesh.rotation.y = -Math.PI / 2;
+                    }
+                    group.add(signMesh);
+                }
+
+                // 4. Recessed Loading Bay Canopy (with Pure Red Top Ceiling) & Dock Doors
+                const canopyDepth = 5.5;
+                const isZ = fac.bayFacing === 'SOUTH' || fac.bayFacing === 'NORTH';
+                const span = isZ ? w * 0.84 : d * 0.84;
+
+                const canopyGeo = isZ
+                    ? new THREE.BoxGeometry(span, 1.2, canopyDepth)
+                    : new THREE.BoxGeometry(canopyDepth, 1.2, span);
+                const canopyMats = [
+                    concreteMat, concreteMat,
+                    mats.pureRedCeiling, // Pure Red Canopy Ceiling
+                    concreteMat, concreteMat, concreteMat
+                ];
+                const canopy = new THREE.Mesh(canopyGeo, canopyMats);
+                canopy.position.set(
+                    dirVec.x * ((w / 2) + canopyDepth / 2),
+                    8.8,
+                    dirVec.z * ((d / 2) + canopyDepth / 2)
+                );
+                canopy.castShadow = true;
+                group.add(canopy);
+
+                // Create Individual Loading Bays & Stacked Pallets
+                const spacing = span / fac.baysCount;
+                for (let b = 0; b < fac.baysCount; b++) {
+                    const offset = -span / 2 + spacing / 2 + b * spacing;
+
+                    // Local position on building wall
+                    const wallOffset = isZ ? (d / 2 + 0.15) : (w / 2 + 0.15);
+                    const bx = isZ ? offset : dirVec.x * wallOffset;
+                    const bz = isZ ? dirVec.z * wallOffset : offset;
+
+                    // Open Dark Dock Interior & Half-Rolled Shutter
+                    const doorGeo = isZ ? new THREE.PlaneGeometry(5.2, 6.2) : new THREE.PlaneGeometry(5.2, 6.2);
+                    const doorMesh = new THREE.Mesh(doorGeo, bayInteriorMat);
+                    doorMesh.position.set(bx, 3.3, bz);
+                    if (!isZ) doorMesh.rotation.y = dirVec.x > 0 ? Math.PI / 2 : -Math.PI / 2;
+                    else if (dirVec.z < 0) doorMesh.rotation.y = Math.PI;
+                    group.add(doorMesh);
+
+                    // Yellow Safety Parking Lines on Asphalt for each Truck
+                    const lineLength = 12;
+                    [-2.8, 2.8].forEach(side => {
+                        const lGeo = isZ
+                            ? new THREE.PlaneGeometry(0.35, lineLength)
+                            : new THREE.PlaneGeometry(lineLength, 0.35);
+                        const line = new THREE.Mesh(lGeo, safetyLineMat);
+                        line.rotation.x = -Math.PI / 2;
+                        const lx = isZ ? bx + side : bx + dirVec.x * 7.5;
+                        const lz = isZ ? bz + dirVec.z * 7.5 : bz + side;
+                        line.position.set(lx, 0.27, lz);
+                        group.add(line);
+                    });
+
+                    // Staging Cargo Pallets next to Bay
+                    const palletGroup = createCargoPalletCluster();
+                    const px = isZ ? bx + 3.4 : bx + dirVec.x * 2.2;
+                    const pz = isZ ? bz + dirVec.z * 2.2 : bz + 3.4;
+                    palletGroup.position.set(px, 0.25, pz);
+                    group.add(palletGroup);
+
+                    // Compute World Coordinates for Vehicles & Workers
+                    const dockWorldPos = new THREE.Vector3(
+                        fac.position.x + (isZ ? bx : bx + dirVec.x * 8.2),
+                        0.25,
+                        fac.position.z + (isZ ? bz + dirVec.z * 8.2 : bz)
+                    );
+                    const approachWorldPos = new THREE.Vector3(
+                        fac.position.x + (isZ ? bx : bx + dirVec.x * 21),
+                        0.25,
+                        fac.position.z + (isZ ? bz + dirVec.z * 21 : bz)
+                    );
+                    const bayDoorWorldPos = new THREE.Vector3(
+                        fac.position.x + (isZ ? bx : bx + dirVec.x * 1.4),
+                        0.25,
+                        fac.position.z + (isZ ? bz + dirVec.z * 1.4 : bz)
+                    );
+
+                    // Facing angle for vehicle when backed into bay (facing outward)
+                    let parkedRotationY = 0;
+                    if (fac.bayFacing === 'SOUTH') parkedRotationY = 0;
+                    if (fac.bayFacing === 'NORTH') parkedRotationY = Math.PI;
+                    if (fac.bayFacing === 'EAST')  parkedRotationY = Math.PI / 2;
+                    if (fac.bayFacing === 'WEST')  parkedRotationY = -Math.PI / 2;
+
+                    const bayObj = {
+                        id: `${fac.id}-BAY-${b + 1}`,
+                        facilityId: fac.id,
+                        facilityName: fac.shortName,
+                        bayNumber: b + 1,
+                        dockPos: dockWorldPos,
+                        approachPos: approachWorldPos,
+                        doorPos: bayDoorWorldPos,
+                        parkedRotationY,
+                        occupiedBy: null
+                    };
+                    fac.bays.push(bayObj);
+                    allLoadingBays.push(bayObj);
+                }
+
+                scene.add(group);
+            });
+        }
+
+        function createCargoPalletCluster() {
+            const g = new THREE.Group();
+            const palletBase = new THREE.Mesh(
+                new THREE.BoxGeometry(2.2, 0.25, 2.2),
+                new THREE.MeshStandardMaterial({ color: 0x92400e })
+            );
+            palletBase.position.y = 0.125;
+            g.add(palletBase);
+
+            for (let y = 0; y < 2; y++) {
+                const crate = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.7, 0.95, 1.7),
+                    y % 2 === 0 ? mats.crateCardboard : mats.crateCrown
+                );
+                crate.position.set(0, 0.72 + y * 0.98, 0);
+                crate.castShadow = true;
+                g.add(crate);
+            }
+            return g;
+        }
+
+        /********************************************************************
+         * 6. BUILD 20 CROWN WORLDWIDE VEHICLES (Box Trucks & Euro Cargo Vans)
+         ********************************************************************/
+        const vehicles = [];
+
+        function createCrownVehicleMesh(type = 'TRUCK') {
+            const root = new THREE.Group();
+
+            if (type === 'TRUCK') {
+                // Isuzu/Hino Medium Box Truck with Roof Fairing (Left 3 trucks in photo)
+                // 1. Rear Cargo Box with Crown Livery
+                const boxGeo = new THREE.BoxGeometry(3.4, 3.7, 6.8);
+                const boxMaterials = [
+                    mats.crownRedLiveryTruck, // Right side
+                    mats.crownRedLiveryTruck, // Left side
+                    mats.crownRed,            // Top
+                    mats.darkTrim,            // Bottom
+                    mats.crownRed,            // Front wall
+                    mats.crownRed             // Rear doors
+                ];
+                const cargoBox = new THREE.Mesh(boxGeo, boxMaterials);
+                cargoBox.position.set(0, 2.75, -1.2);
+                cargoBox.castShadow = true;
+                cargoBox.receiveShadow = true;
+                root.add(cargoBox);
+
+                // 2. Cab-over-Engine Front Cabin
+                const cab = new THREE.Mesh(new THREE.BoxGeometry(3.1, 2.55, 2.3), mats.crownRed);
+                cab.position.set(0, 2.1, 3.45);
+                cab.castShadow = true;
+                root.add(cab);
+
+                // 3. Aerodynamic Roof Wind Deflector Fairing above Cab
+                const fairing = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.85, 1.8), mats.crownRed);
+                fairing.position.set(0, 3.65, 3.1);
+                fairing.rotation.x = 0.32;
+                root.add(fairing);
+
+                // 4. Windshield & Side Windows
+                const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.85, 1.15, 0.15), mats.cabinGlass);
+                windshield.position.set(0, 2.45, 4.58);
+                root.add(windshield);
+
+                const sideWindows = new THREE.Mesh(new THREE.BoxGeometry(3.16, 1.0, 1.4), mats.cabinGlass);
+                sideWindows.position.set(0, 2.45, 3.55);
+                root.add(sideWindows);
+
+                // Front Grille & Headlights
+                const grille = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.65, 0.15), mats.darkTrim);
+                grille.position.set(0, 1.35, 4.6);
+                root.add(grille);
+
+                [-1.15, 1.15].forEach(hx => {
+                    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.4, 0.15), mats.headlight);
+                    hl.position.set(hx, 1.35, 4.61);
+                    root.add(hl);
+                });
+
+                // 4 Heavy-Duty Wheels with Silver Rims
+                const wheelPositions = [
+                    [-1.55, 0.8, 3.3], [1.55, 0.8, 3.3],
+                    [-1.55, 0.8, -2.5], [1.55, 0.8, -2.5]
+                ];
+                wheelPositions.forEach(([wx, wy, wz]) => {
+                    root.add(createWheel(wx, wy, wz, 0.8));
+                });
+
+            } else {
+                // Red Peugeot Expert Euro Cargo Van (Right 2 vans in photo)
+                // Sleek unified van body
+                const bodyGeo = new THREE.BoxGeometry(2.75, 2.35, 5.8);
+                const vanMaterials = [
+                    mats.crownRedLiveryVan,
+                    mats.crownRedLiveryVan,
+                    mats.crownRed,
+                    mats.darkTrim,
+                    mats.crownRed,
+                    mats.crownRed
+                ];
+                const body = new THREE.Mesh(bodyGeo, vanMaterials);
+                body.position.set(0, 1.75, -0.4);
+                body.castShadow = true;
+                body.receiveShadow = true;
+                root.add(body);
+
+                // Sloped Front Hood & Bumper
+                const hood = new THREE.Mesh(new THREE.BoxGeometry(2.68, 1.35, 1.6), mats.crownRed);
+                hood.position.set(0, 1.25, 2.9);
+                hood.castShadow = true;
+                root.add(hood);
+
+                // Slanted Windshield
+                const windshield = new THREE.Mesh(new THREE.BoxGeometry(2.45, 1.15, 1.3), mats.cabinGlass);
+                windshield.position.set(0, 2.15, 2.35);
+                windshield.rotation.x = -0.45;
+                root.add(windshield);
+
+                // Black Side Panel Windows (matching photo's tinted middle window)
+                const sidePanelGlass = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.88, 3.4), mats.cabinGlass);
+                sidePanelGlass.position.set(0, 2.15, 0.25);
+                root.add(sidePanelGlass);
+
+                // Black Grille & License Plate (e.g., ZC 5364 from photo)
+                const grille = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.5, 0.15), mats.darkTrim);
+                grille.position.set(0, 1.2, 3.7);
+                root.add(grille);
+
+                const plate = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.85, 0.24, 0.16),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
+                plate.position.set(0, 0.78, 3.71);
+                root.add(plate);
+
+                [-1.0, 1.0].forEach(hx => {
+                    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.28, 0.15), mats.headlight);
+                    hl.position.set(hx, 1.32, 3.71);
+                    root.add(hl);
+                });
+
+                // 4 Alloy Wheels
+                const wheelPositions = [
+                    [-1.35, 0.65, 2.3], [1.35, 0.65, 2.3],
+                    [-1.35, 0.65, -1.9], [1.35, 0.65, -1.9]
+                ];
+                wheelPositions.forEach(([wx, wy, wz]) => {
+                    root.add(createWheel(wx, wy, wz, 0.65));
+                });
+            }
+
+            // Status Beacon Indicator above vehicle when loading/unloading
+            const beacon = new THREE.Mesh(
+                new THREE.SphereGeometry(0.45, 12, 12),
+                new THREE.MeshBasicMaterial({ color: 0x22c55e })
+            );
+            beacon.position.set(0, 5.2, 0);
+            beacon.visible = false;
+            root.add(beacon);
+            root.userData.beacon = beacon;
+
+            return root;
+        }
+
+        function createWheel(x, y, z, radius) {
+            const wGroup = new THREE.Group();
+            const tire = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.55, 16), mats.darkTrim);
+            tire.rotation.z = Math.PI / 2;
+            const rim = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.58, radius * 0.58, 0.58, 12), mats.silverRim);
+            rim.rotation.z = Math.PI / 2;
+            wGroup.add(tire, rim);
+            wGroup.position.set(x, y, z);
+            return wGroup;
+        }
+
+        function initFleet() {
+            const plates = [
+                'ZC 5364', 'CR 8821', 'CW 1092', 'HK 4910', 'CR 3318',
+                'ZC 7741', 'CW 9012', 'LR 5520', 'CR 2109', 'ZC 6188',
+                'CW 3049', 'HK 8172', 'CR 6604', 'ZC 9410', 'CW 7215',
+                'LR 1189', 'CR 5093', 'ZC 3827', 'CW 8491', 'HK 2046'
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                // 12 Box Trucks & 8 Euro Cargo Vans
+                const vType = i < 12 ? 'TRUCK' : 'VAN';
+                const mesh = createCrownVehicleMesh(vType);
+                scene.add(mesh);
+
+                const vehicle = {
+                    id: `CROWN-V${String(i + 1).padStart(2, '0')}`,
+                    plate: plates[i],
+                    type: vType,
+                    typeName: vType === 'TRUCK' ? 'Crown Box Truck' : 'Crown Euro Cargo Van',
+                    mesh,
+                    state: 'TRANSIT', // TRANSIT, DOCKING, LOADING, UNDOCKING
+                    targetBay: null,
+                    waypoints: [],
+                    wpIndex: 0,
+                    speed: 18 + (i % 5) * 1.8,
+                    timer: 0,
+                    loadProgress: 0
+                };
+
+                // Start first 10 vehicles directly inside Loading Bays so loading bays are immediately active!
+                if (i < 10 && i < allLoadingBays.length) {
+                    const startBay = allLoadingBays[i];
+                    startBay.occupiedBy = vehicle.id;
+                    vehicle.targetBay = startBay;
+                    vehicle.state = 'LOADING';
+                    vehicle.timer = 4 + (i * 1.7) % 10;
+                    vehicle.mesh.position.copy(startBay.dockPos);
+                    vehicle.mesh.rotation.y = startBay.parkedRotationY;
+                    vehicle.mesh.userData.beacon.visible = true;
+                } else {
+                    // Place remaining 10 vehicles on road network heading to available bays
+                    const freeBay = findAvailableBay(null);
+                    assignRouteToBay(vehicle, freeBay, true);
+                }
+
+                vehicles.push(vehicle);
+            }
+        }
+
+        function findAvailableBay(excludeFacilityId) {
+            const candidates = allLoadingBays.filter(b => !b.occupiedBy && b.facilityId !== excludeFacilityId);
+            if (candidates.length > 0) {
+                return candidates[Math.floor(Math.random() * candidates.length)];
+            }
+            const anyFree = allLoadingBays.filter(b => !b.occupiedBy);
+            return anyFree.length > 0 ? anyFree[0] : allLoadingBays[Math.floor(Math.random() * allLoadingBays.length)];
+        }
+
+        function assignRouteToBay(vehicle, destBay, randomizeStart = false) {
+            if (vehicle.targetBay && vehicle.targetBay.occupiedBy === vehicle.id) {
+                vehicle.targetBay.occupiedBy = null;
+            }
+            destBay.occupiedBy = vehicle.id;
+            vehicle.targetBay = destBay;
+
+            const hubPoint = new THREE.Vector3(
+                (Math.random() - 0.5) * 10,
+                0.25,
+                45 + (Math.random() - 0.5) * 10
+            );
+
+            if (randomizeStart) {
+                const startAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+                const ang = startAngles[Math.floor(Math.random() * startAngles.length)];
+                const dist = 25 + Math.random() * 45;
+                vehicle.mesh.position.set(
+                    Math.cos(ang) * dist,
+                    0.25,
+                    45 + Math.sin(ang) * dist
+                );
+            }
+
+            vehicle.waypoints = [
+                hubPoint,
+                destBay.approachPos.clone()
+            ];
+            vehicle.wpIndex = 0;
+            vehicle.state = 'TRANSIT';
+            vehicle.mesh.userData.beacon.visible = false;
+        }
+
+        /********************************************************************
+         * 7. BUILD 15 LOGISTICS WORKERS (Moving & Loading/Unloading Crates)
+         ********************************************************************/
+        const workers = [];
+        let totalCargoHandled = 1428;
+
+        function createWorkerMesh(workerIndex) {
+            const wGroup = new THREE.Group();
+
+            // Torso: All Workers wear Red Crown Polo with Small Crown Logo on Chest & Back!
+            const torsoMats = [
+                mats.crownShirt,     // Right side
+                mats.crownShirt,     // Left side
+                mats.crownShirt,     // Top shoulders
+                mats.crownShirt,     // Bottom waist
+                mats.crownPoloFront, // Front chest with small Gold Crown logo
+                mats.crownPoloFront  // Back with small Gold Crown logo
+            ];
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.98, 1.38, 0.62), torsoMats);
+            torso.position.y = 1.95;
+            torso.castShadow = true;
+            wGroup.add(torso);
+
+            // Red Polo Collar Ring around neck
+            const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.18, 12), mats.crownShirt);
+            collar.position.y = 2.66;
+            wGroup.add(collar);
+
+            // Head & Safety Hardhat
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 12, 12), mats.skinTone);
+            head.position.y = 2.95;
+            wGroup.add(head);
+
+            const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.43, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.6), mats.helmetYellow);
+            helmet.position.y = 3.02;
+            wGroup.add(helmet);
+
+            // Articulated Left & Right Legs
+            const legGeo = new THREE.BoxGeometry(0.36, 1.2, 0.38);
+            const leftLeg = new THREE.Mesh(legGeo, mats.workerPants);
+            leftLeg.position.set(-0.24, 0.65, 0);
+            const rightLeg = new THREE.Mesh(legGeo, mats.workerPants);
+            rightLeg.position.set(0.24, 0.65, 0);
+            wGroup.add(leftLeg, rightLeg);
+
+            // Short Red Polo Sleeves + Forearms
+            const armGeo = new THREE.BoxGeometry(0.28, 1.05, 0.28);
+            const leftArm = new THREE.Mesh(armGeo, mats.crownShirt);
+            leftArm.position.set(-0.65, 1.95, 0.25);
+            leftArm.rotation.x = -0.6;
+            const rightArm = new THREE.Mesh(armGeo, mats.crownShirt);
+            rightArm.position.set(0.65, 1.95, 0.25);
+            rightArm.rotation.x = -0.6;
+            wGroup.add(leftArm, rightArm);
+
+            // Carried Crown Relocation Box in hands (slightly lower so chest Crown logo stays visible)
+            const carriedBox = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.72, 0.85), mats.crateCardboard);
+            carriedBox.position.set(0, 1.62, 0.78);
+            carriedBox.castShadow = true;
+            wGroup.add(carriedBox);
+
+            wGroup.userData = { leftLeg, rightLeg, leftArm, rightArm, carriedBox };
+            return wGroup;
+        }
+
+        function initWorkers() {
+            const roles = [
+                'Bay Loader', 'Forklift & Pallet Tech', 'Crate Handler', 'Manifest Scanner',
+                'Fine Art Packer', 'Relocations Crew', 'Vault Supervisor', 'Dock Coordinator'
+            ];
+
+            let workerIdx = 0;
+            Object.values(FACILITIES).forEach(fac => {
+                for (let c = 0; c < fac.workersCount; c++) {
+                    const bay = fac.bays[c % fac.bays.length];
+                    const mesh = createWorkerMesh(workerIdx);
+                    scene.add(mesh);
+
+                    // Path between staging door and truck tailgate
+                    const pointA = bay.doorPos.clone();
+                    const pointB = bay.dockPos.clone().lerp(bay.doorPos, 0.45);
+
+                    mesh.position.copy(pointA);
+
+                    workers.push({
+                        id: `WORKER-${String(workerIdx + 1).padStart(2, '0')}`,
+                        name: `Staff #${workerIdx + 1} (${roles[workerIdx % roles.length]})`,
+                        facilityId: fac.id,
+                        facilityName: fac.shortName,
+                        bayId: bay.id,
+                        mesh,
+                        pointA,
+                        pointB,
+                        progress: (workerIdx * 0.23) % 1,
+                        direction: 1, // 1: carrying crate to truck, -1: returning from truck
+                        walkCycle: Math.random() * 10
+                    });
+
+                    workerIdx++;
+                }
+            });
+        }
+
+        /********************************************************************
+         * 8. REAL-TIME SIMULATION ANIMATION LOOP
+         ********************************************************************/
+        let simSpeed = 1.0;
+        let selectedEntity = null;
+        let followTargetMesh = null;
+
+        function updateSimulation(dt) {
+            const scaledDt = dt * simSpeed;
+
+            // Rotate Roundabout Crown Monument
+            if (window.crownMonument) {
+                window.crownMonument.rotation.y += scaledDt * 0.6;
+            }
+
+            let movingCount = 0;
+            let dockedCount = 0;
+
+            // 1. Update 20 Vehicles State Machine
+            vehicles.forEach(v => {
+                if (v.state === 'TRANSIT') {
+                    movingCount++;
+                    const targetPos = v.waypoints[v.wpIndex];
+                    const dir = new THREE.Vector3().subVectors(targetPos, v.mesh.position);
+                    dir.y = 0;
+                    const dist = dir.length();
+
+                    if (dist < 2.2) {
+                        v.wpIndex++;
+                        if (v.wpIndex >= v.waypoints.length) {
+                            v.state = 'DOCKING';
+                        }
+                    } else {
+                        dir.normalize();
+                        v.mesh.position.addScaledVector(dir, v.speed * scaledDt);
+                        const desiredRot = Math.atan2(dir.x, dir.z);
+                        v.mesh.rotation.y = lerpAngle(v.mesh.rotation.y, desiredRot, 6 * scaledDt);
+                    }
+                } else if (v.state === 'DOCKING') {
+                    movingCount++;
+                    // Smoothly reverse into the loading bay
+                    const bay = v.targetBay;
+                    const dir = new THREE.Vector3().subVectors(bay.dockPos, v.mesh.position);
+                    dir.y = 0;
+                    const dist = dir.length();
+
+                    v.mesh.rotation.y = lerpAngle(v.mesh.rotation.y, bay.parkedRotationY, 5 * scaledDt);
+
+                    if (dist < 0.6) {
+                        v.mesh.position.copy(bay.dockPos);
+                        v.mesh.rotation.y = bay.parkedRotationY;
+                        v.state = 'LOADING';
+                        v.timer = 9 + Math.random() * 8; // Stay at bay to load/unload
+                        v.loadProgress = 0;
+                        v.mesh.userData.beacon.visible = true;
+                    } else {
+                        dir.normalize();
+                        v.mesh.position.addScaledVector(dir, (v.speed * 0.45) * scaledDt);
+                    }
+                } else if (v.state === 'LOADING') {
+                    dockedCount++;
+                    v.timer -= scaledDt;
+                    v.loadProgress = Math.min(100, Math.round(((14 - v.timer) / 14) * 100));
+                    // Pulse green beacon above docked truck
+                    const s = 1 + Math.sin( performance.now() * 0.008 ) * 0.25;
+                    v.mesh.userData.beacon.scale.set(s, s, s);
+
+                    if (v.timer <= 0) {
+                        v.state = 'UNDOCKING';
+                        v.mesh.userData.beacon.visible = false;
+                    }
+                } else if (v.state === 'UNDOCKING') {
+                    movingCount++;
+                    const bay = v.targetBay;
+                    const dir = new THREE.Vector3().subVectors(bay.approachPos, v.mesh.position);
+                    dir.y = 0;
+                    const dist = dir.length();
+
+                    if (dist < 1.5) {
+                        const nextBay = findAvailableBay(bay.facilityId);
+                        assignRouteToBay(v, nextBay, false);
+                    } else {
+                        dir.normalize();
+                        v.mesh.position.addScaledVector(dir, (v.speed * 0.65) * scaledDt);
+                    }
+                }
+            });
+
+            // 2. Update 15 Workers Walking & Loading Crates
+            workers.forEach(w => {
+                w.progress += w.direction * 0.42 * scaledDt;
+                if (w.progress >= 1) {
+                    w.progress = 1;
+                    w.direction = -1;
+                    w.mesh.userData.carriedBox.visible = false; // Unloaded crate into vehicle!
+                    totalCargoHandled++;
+                } else if (w.progress <= 0) {
+                    w.progress = 0;
+                    w.direction = 1;
+                    w.mesh.userData.carriedBox.visible = true; // Picked up fresh crate from staging!
+                }
+
+                // Interpolate position
+                w.mesh.position.lerpVectors(w.pointA, w.pointB, w.progress);
+
+                // Face walking direction
+                const targetPoint = w.direction > 0 ? w.pointB : w.pointA;
+                const lookDir = new THREE.Vector3().subVectors(targetPoint, w.mesh.position);
+                if (lookDir.lengthSq() > 0.001) {
+                    w.mesh.rotation.y = Math.atan2(lookDir.x, lookDir.z);
+                }
+
+                // Animate legs & subtle bobbing
+                w.walkCycle += scaledDt * 10;
+                const swing = Math.sin(w.walkCycle) * 0.55;
+                w.mesh.userData.leftLeg.rotation.x = swing;
+                w.mesh.userData.rightLeg.rotation.x = -swing;
+            });
+
+            // Update Top KPI Counters
+            document.getElementById('kpi-moving').textContent = movingCount;
+            document.getElementById('kpi-docked').textContent = dockedCount;
+            document.getElementById('kpi-cargo').textContent = totalCargoHandled.toLocaleString() + ' Crates';
+        }
+
+        function lerpAngle(a, b, t) {
+            const diff = Math.atan2(Math.sin(b - a), Math.cos(b - a));
+            return a + diff * Math.min(1, t);
+        }
+
+        /********************************************************************
+         * 9. INTERACTIVE CAMERA CONTROLLER (ORBIT, PAN, ZOOM & SMOOTH FOCUS)
+         ********************************************************************/
+        const camState = {
+            target: new THREE.Vector3(0, 8, 10),
+            desiredTarget: new THREE.Vector3(0, 8, 10),
+            spherical: { radius: 245, phi: 1.02, theta: 0.15 },
+            desiredSpherical: { radius: 245, phi: 1.02, theta: 0.15 },
+            isDragging: false,
+            button: 0,
+            prevMouse: { x: 0, y: 0 }
+        };
+
+        renderer.domElement.addEventListener('mousedown', e => {
+            camState.isDragging = true;
+            camState.button = e.button;
+            camState.prevMouse = { x: e.clientX, y: e.clientY };
+            if (e.button === 2) followTargetMesh = null;
+        });
+
+        window.addEventListener('mouseup', () => { camState.isDragging = false; });
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        window.addEventListener('mousemove', e => {
+            if (!camState.isDragging) return;
+            const dx = e.clientX - camState.prevMouse.x;
+            const dy = e.clientY - camState.prevMouse.y;
+            camState.prevMouse = { x: e.clientX, y: e.clientY };
+
+            if (camState.button === 0) {
+                // Orbit
+                camState.desiredSpherical.theta -= dx * 0.0065;
+                camState.desiredSpherical.phi = Math.max(0.25, Math.min(1.45, camState.desiredSpherical.phi - dy * 0.0065));
+            } else if (camState.button === 2) {
+                // Pan
+                const panFactor = camState.spherical.radius * 0.0015;
+                const right = new THREE.Vector3();
+                const forward = new THREE.Vector3();
+                camera.getWorldDirection(forward);
+                right.crossVectors(forward, camera.up).normalize();
+                forward.y = 0;
+                forward.normalize();
+
+                camState.desiredTarget.addScaledVector(right, -dx * panFactor);
+                camState.desiredTarget.addScaledVector(forward, dy * panFactor);
+            }
+        });
+
+        renderer.domElement.addEventListener('wheel', e => {
+            e.preventDefault();
+            camState.desiredSpherical.radius = Math.max(32, Math.min(440, camState.desiredSpherical.radius + e.deltaY * 0.16));
+        }, { passive: false });
+
+        // Touch Support for Mobile/Tablet
+        let prevTouch = null;
+        renderer.domElement.addEventListener('touchstart', e => {
+            if (e.touches.length === 1) {
+                prevTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        });
+        renderer.domElement.addEventListener('touchmove', e => {
+            if (e.touches.length === 1 && prevTouch) {
+                const dx = e.touches[0].clientX - prevTouch.x;
+                const dy = e.touches[0].clientY - prevTouch.y;
+                prevTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                camState.desiredSpherical.theta -= dx * 0.007;
+                camState.desiredSpherical.phi = Math.max(0.25, Math.min(1.45, camState.desiredSpherical.phi - dy * 0.007));
+            }
+        });
+
+        function updateCamera() {
+            if (followTargetMesh) {
+                camState.desiredTarget.copy(followTargetMesh.position);
+                camState.desiredTarget.y += 3;
+            }
+
+            camState.target.lerp(camState.desiredTarget, 0.1);
+            camState.spherical.radius += (camState.desiredSpherical.radius - camState.spherical.radius) * 0.1;
+            camState.spherical.phi += (camState.desiredSpherical.phi - camState.spherical.phi) * 0.1;
+            camState.spherical.theta += (camState.desiredSpherical.theta - camState.spherical.theta) * 0.1;
+
+            const r = camState.spherical.radius;
+            const phi = camState.spherical.phi;
+            const theta = camState.spherical.theta;
+
+            camera.position.x = camState.target.x + r * Math.sin(phi) * Math.sin(theta);
+            camera.position.y = camState.target.y + r * Math.cos(phi);
+            camera.position.z = camState.target.z + r * Math.sin(phi) * Math.cos(theta);
+            camera.lookAt(camState.target);
+        }
+
+        /********************************************************************
+         * 10. FLOATING 3D MARKERS & UI SYNCHRONIZATION
+         ********************************************************************/
+        const labelsContainer = document.getElementById('labels-container');
+        let showFloatingLabels = true;
+        const facilityMarkers = [];
+
+        function initFloatingLabels() {
+            Object.values(FACILITIES).forEach(fac => {
+                const el = document.createElement('div');
+                el.className = 'marker-label glass-panel rounded-xl px-3 py-1.5 flex items-center gap-2 border border-red-200 shadow-lg';
+                const projectBadgeHtml = fac.projectUrl ? `
+                    <a href="${fac.projectUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Open ${fac.projectLabel}" class="px-2 py-1 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold flex items-center gap-1 transition shadow-sm">
+                        <i class="fa-solid fa-box-open"></i> ${fac.projectLabel}
+                    </a>
+                ` : '';
+                el.innerHTML = `
+                    <span class="w-2.5 h-2.5 rounded-full bg-red-600 pulse-dot"></span>
+                    <div>
+                        <div class="text-xs font-extrabold text-slate-900 leading-none">${fac.shortName}</div>
+                        <div class="text-[10px] font-medium text-slate-500 mt-0.5">${fac.baysCount} Loading Bays • ${fac.workersCount} Staff</div>
+                    </div>
+                    ${projectBadgeHtml}
+                    <a href="${fac.mapUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" title="Open Google Maps" class="ml-1 w-6 h-6 rounded-lg bg-red-50 hover:bg-red-600 text-red-600 hover:text-white flex items-center justify-center text-xs transition">
+                        <i class="fa-solid fa-location-arrow"></i>
+                    </a>
+                `;
+                el.addEventListener('click', () => focusFacility(fac.id));
+                labelsContainer.appendChild(el);
+
+                facilityMarkers.push({
+                    fac,
+                    el,
+                    worldPos: new THREE.Vector3(fac.position.x, fac.size.h + 9, fac.position.z)
+                });
+            });
+        }
+
+        function updateFloatingLabels() {
+            if (!showFloatingLabels) {
+                facilityMarkers.forEach(m => { m.el.style.display = 'none'; });
+                return;
+            }
+            facilityMarkers.forEach(m => {
+                const projected = m.worldPos.clone().project(camera);
+                if (projected.z > 1) {
+                    m.el.style.display = 'none';
+                    return;
+                }
+                const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(projected.y * 0.5) + 0.5) * window.innerHeight;
+                m.el.style.display = 'flex';
+                m.el.style.left = `${x}px`;
+                m.el.style.top = `${y}px`;
+            });
+        }
+
+        /********************************************************************
+         * 11. SIDEBAR DIRECTORY & INSPECTOR LOGIC
+         ********************************************************************/
+        let activeTab = 'VEHICLES';
+
+        function renderWarehouseCards() {
+            const listEl = document.getElementById('warehouse-list');
+            listEl.innerHTML = Object.values(FACILITIES).map(fac => `
+                <div onclick="focusFacility('${fac.id}')" class="p-2.5 rounded-xl bg-white/80 hover:bg-white border border-slate-200/80 hover:border-red-300 cursor-pointer transition flex flex-col gap-2 group shadow-sm">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-red-600"></span>
+                                <div class="text-xs font-bold text-slate-900 truncate group-hover:text-red-600 transition">${fac.name}</div>
+                            </div>
+                            <div class="text-[11px] text-slate-500 truncate mt-0.5">${fac.address}</div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <a href="${fac.mapUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="w-7 h-7 rounded-lg bg-slate-100 hover:bg-red-600 text-slate-600 hover:text-white flex items-center justify-center text-xs transition" title="Open Google Maps">
+                                <i class="fa-solid fa-map-pin"></i>
+                            </a>
+                        </div>
+                    </div>
+                    ${fac.projectUrl ? `
+                    <div class="pt-1.5 border-t border-slate-100 flex items-center justify-end">
+                        <a href="${fac.projectUrl}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()" class="w-full py-1.5 px-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-sm transition">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> ${fac.projectLabel}
+                        </a>
+                    </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        function renderEntityList() {
+            const containerEl = document.getElementById('entity-list');
+            if (activeTab === 'VEHICLES') {
+                containerEl.innerHTML = vehicles.map(v => {
+                    const isBooked = v.state === 'LOADING';
+                    const badgeClass = isBooked
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                        : 'bg-amber-100 text-amber-700 border-amber-200';
+                    const statusText = isBooked
+                        ? `Bay: ${v.targetBay.facilityName}`
+                        : `En Route → ${v.targetBay ? v.targetBay.facilityName : 'Hub'}`;
+
+                    return `
+                        <div onclick="inspectVehicle('${v.id}')" class="p-2 rounded-xl bg-white/75 hover:bg-white border border-slate-200/70 cursor-pointer transition flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 rounded-lg ${v.type === 'TRUCK' ? 'bg-red-600 text-white' : 'bg-red-100 text-red-700'} flex items-center justify-center text-xs font-bold shrink-0">
+                                    <i class="fa-solid ${v.type === 'TRUCK' ? 'fa-truck' : 'fa-van-shuttle'}"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-xs font-bold text-slate-800 truncate">${v.id} <span class="text-[10px] font-semibold text-slate-400">(${v.plate})</span></div>
+                                    <div class="text-[10px] text-slate-500 truncate">${v.typeName}</div>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border ${badgeClass} shrink-0">
+                                ${statusText}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                containerEl.innerHTML = workers.map(w => `
+                    <div onclick="inspectWorker('${w.id}')" class="p-2 rounded-xl bg-white/75 hover:bg-white border border-slate-200/70 cursor-pointer transition flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <div class="w-8 h-8 rounded-lg bg-red-600 text-amber-300 flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+                                <i class="fa-solid fa-crown"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-xs font-bold text-slate-800 truncate">${w.name}</div>
+                                <div class="text-[10px] text-slate-500 truncate">${w.facilityName} • Red Crown Polo</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
+                            ${w.direction > 0 ? 'Loading' : 'Staging'}
+                        </span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Menu Open / Close Toggle Functions (All Menus Minimized by Default)
+        let isSidebarOpen = false;
+        let isKpiOpen = false;
+        let isBottomDockOpen = false;
+
+        window.toggleSidebarMenu = function() {
+            isSidebarOpen = !isSidebarOpen;
+            const sidebar = document.getElementById('sidebar-panel');
+            const icon = document.getElementById('sidebar-toggle-icon');
+            const text = document.getElementById('sidebar-toggle-text');
+
+            if (isSidebarOpen) {
+                sidebar.classList.remove('-translate-x-[120%]');
+                sidebar.classList.add('translate-x-0');
+                icon.className = 'fa-solid fa-xmark';
+                text.textContent = 'Close Menu';
+            } else {
+                sidebar.classList.remove('translate-x-0');
+                sidebar.classList.add('-translate-x-[120%]');
+                icon.className = 'fa-solid fa-bars';
+                text.textContent = 'Open Menu';
+            }
+        };
+
+        window.toggleKpiMenu = function() {
+            isKpiOpen = !isKpiOpen;
+            const kpiPanel = document.getElementById('kpi-panel');
+            const kpiText = document.getElementById('kpi-toggle-text');
+            if (isKpiOpen) {
+                kpiPanel.classList.remove('hidden');
+                kpiPanel.classList.add('flex');
+                kpiText.textContent = 'Hide Stats';
+            } else {
+                kpiPanel.classList.remove('flex');
+                kpiPanel.classList.add('hidden');
+                kpiText.textContent = 'Show Stats';
+            }
+        };
+
+        window.toggleBottomDock = function() {
+            isBottomDockOpen = !isBottomDockOpen;
+            const dockContent = document.getElementById('bottom-dock-content');
+            const helpContent = document.getElementById('bottom-help-content');
+            const dockText = document.getElementById('bottom-dock-text');
+            const dockIcon = document.getElementById('bottom-dock-icon');
+
+            if (isBottomDockOpen) {
+                dockContent.classList.remove('hidden');
+                dockContent.classList.add('flex');
+                helpContent.classList.remove('hidden');
+                helpContent.classList.add('md:flex');
+                dockText.textContent = 'Close Teleport';
+                dockIcon.className = 'fa-solid fa-xmark text-red-600';
+            } else {
+                dockContent.classList.remove('flex');
+                dockContent.classList.add('hidden');
+                helpContent.classList.remove('md:flex');
+                helpContent.classList.add('hidden');
+                dockText.textContent = 'Open Quick Teleport';
+                dockIcon.className = 'fa-solid fa-location-crosshairs text-red-600';
+            }
+        };
+
+        // Camera Focus & Inspector Triggers
+        window.focusFacility = function(facId) {
+            const fac = FACILITIES[facId];
+            if (!fac) return;
+            followTargetMesh = null;
+
+            camState.desiredTarget.set(fac.position.x, 6, fac.position.z);
+            camState.desiredSpherical.radius = 92;
+            camState.desiredSpherical.phi = 1.05;
+
+            if (fac.bayFacing === 'SOUTH') camState.desiredSpherical.theta = 0.25;
+            if (fac.bayFacing === 'NORTH') camState.desiredSpherical.theta = Math.PI - 0.25;
+            if (fac.bayFacing === 'EAST')  camState.desiredSpherical.theta = Math.PI / 2 - 0.25;
+            if (fac.bayFacing === 'WEST')  camState.desiredSpherical.theta = -Math.PI / 2 + 0.25;
+
+            const dockedHere = vehicles.filter(v => v.targetBay && v.targetBay.facilityId === facId && v.state === 'LOADING').length;
+
+            showInspector({
+                badge: 'Crown Facility Twin',
+                title: fac.name,
+                subtitle: fac.address,
+                mapUrl: fac.mapUrl,
+                detailsHtml: `
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Division:</span>
+                        <span class="font-semibold text-slate-800 text-right">${fac.division}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Loading Bays:</span>
+                        <span class="font-semibold text-emerald-600">${dockedHere} / ${fac.baysCount} Active Bays</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Assigned Crew:</span>
+                        <span class="font-semibold text-slate-800">${fac.workersCount} Logistics Staff</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-500">Vault Capacity:</span>
+                        <span class="font-semibold text-red-600">${fac.capacity}</span>
+                    </div>
+                `,
+                extraActionsHtml: fac.projectUrl ? `
+                    <a href="${fac.projectUrl}" target="_blank" rel="noopener noreferrer" class="w-full py-2 px-3 rounded-xl crown-gradient hover:opacity-95 text-white text-xs font-bold text-center flex items-center justify-center gap-2 shadow-md transition">
+                        <i class="fa-solid fa-boxes-stacked"></i> ${fac.projectLabel}
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                ` : '',
+                onFocus: () => focusFacility(facId)
+            });
+        };
+
+        window.focusLoadingBayAction = function() {
+            const fac = FACILITIES.MAIN;
+            followTargetMesh = null;
+            camState.desiredTarget.set(fac.position.x - 5, 4, fac.position.z + 24);
+            camState.desiredSpherical.radius = 44;
+            camState.desiredSpherical.phi = 1.18;
+            camState.desiredSpherical.theta = 0.35;
+        };
+
+        window.inspectVehicle = function(vId) {
+            const v = vehicles.find(x => x.id === vId);
+            if (!v) return;
+            followTargetMesh = v.mesh;
+            camState.desiredSpherical.radius = 42;
+            camState.desiredSpherical.phi = 1.12;
+
+            const fac = v.targetBay ? FACILITIES[v.targetBay.facilityId] : FACILITIES.MAIN;
+            showInspector({
+                badge: v.typeName,
+                title: `${v.id} • Plate ${v.plate}`,
+                subtitle: `Assigned Hub: ${fac.name}`,
+                mapUrl: fac.mapUrl,
+                detailsHtml: `
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Operation State:</span>
+                        <span class="font-bold text-emerald-600">${v.state}</span>
+                    </div>
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Target Bay:</span>
+                        <span class="font-semibold text-slate-800">${v.targetBay ? v.targetBay.id : 'Transit'}</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-500">Livery Spec:</span>
+                        <span class="font-semibold text-slate-800">Crown Red + Eco Corner</span>
+                    </div>
+                `,
+                onFocus: () => {
+                    followTargetMesh = v.mesh;
+                    camState.desiredSpherical.radius = 38;
+                }
+            });
+        };
+
+        window.inspectWorker = function(wId) {
+            const w = workers.find(x => x.id === wId);
+            if (!w) return;
+            followTargetMesh = w.mesh;
+            camState.desiredSpherical.radius = 32;
+            camState.desiredSpherical.phi = 1.15;
+
+            const fac = FACILITIES[w.facilityId];
+            showInspector({
+                badge: 'Logistics Worker',
+                title: w.name,
+                subtitle: `${fac.name} (${w.bayId})`,
+                mapUrl: fac.mapUrl,
+                detailsHtml: `
+                    <div class="flex justify-between py-1 border-b border-slate-100">
+                        <span class="text-slate-500">Current Task:</span>
+                        <span class="font-bold text-amber-600">${w.direction > 0 ? 'Loading Crate to Vehicle' : 'Returning to Staging'}</span>
+                    </div>
+                    <div class="flex justify-between py-1">
+                        <span class="text-slate-500">Uniform:</span>
+                        <span class="font-semibold text-red-600">Red Polo w/ Small Gold Crown Logo</span>
+                    </div>
+                `,
+                onFocus: () => {
+                    followTargetMesh = w.mesh;
+                    camState.desiredSpherical.radius = 28;
+                }
+            });
+        };
+
+        function showInspector({ badge, title, subtitle, mapUrl, detailsHtml, extraActionsHtml = '', onFocus }) {
+            const card = document.getElementById('inspector-card');
+            card.classList.remove('hidden');
+            document.getElementById('insp-badge').textContent = badge;
+            document.getElementById('insp-title').textContent = title;
+            document.getElementById('insp-subtitle').textContent = subtitle;
+            document.getElementById('insp-details').innerHTML = detailsHtml;
+            const extraEl = document.getElementById('insp-extra-actions');
+            if (extraActionsHtml) {
+                extraEl.innerHTML = extraActionsHtml;
+                extraEl.classList.remove('hidden');
+            } else {
+                extraEl.innerHTML = '';
+                extraEl.classList.add('hidden');
+            }
+            document.getElementById('insp-map-link').href = mapUrl;
+            document.getElementById('insp-follow-btn').onclick = onFocus;
+        }
+
+        // UI Button Listeners
+        document.getElementById('close-inspector').addEventListener('click', () => {
+            document.getElementById('inspector-card').classList.add('hidden');
+            followTargetMesh = null;
+        });
+
+        document.getElementById('tab-vehicles').addEventListener('click', () => {
+            activeTab = 'VEHICLES';
+            document.getElementById('tab-vehicles').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-900 shadow-sm transition';
+            document.getElementById('tab-workers').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition';
+            renderEntityList();
+        });
+
+        document.getElementById('tab-workers').addEventListener('click', () => {
+            activeTab = 'WORKERS';
+            document.getElementById('tab-workers').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-900 shadow-sm transition';
+            document.getElementById('tab-vehicles').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition';
+            renderEntityList();
+        });
+
+        document.getElementById('btn-toggle-labels').addEventListener('click', () => {
+            showFloatingLabels = !showFloatingLabels;
+        });
+
+        document.getElementById('btn-speed').addEventListener('click', () => {
+            simSpeed = simSpeed === 1.0 ? 2.0 : simSpeed === 2.0 ? 0.5 : 1.0;
+            document.getElementById('speed-label').textContent = `${simSpeed.toFixed(1)}x Speed`;
+        });
+
+        document.getElementById('btn-reset-cam').addEventListener('click', () => {
+            followTargetMesh = null;
+            camState.desiredTarget.set(0, 8, 10);
+            camState.desiredSpherical.radius = 245;
+            camState.desiredSpherical.phi = 1.02;
+            camState.desiredSpherical.theta = 0.15;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerWidth > 0 ? window.innerHeight : 1);
+        });
+
+        /********************************************************************
+         * 12. INITIALIZE & LAUNCH DIGITAL TWIN ON WINDOW LOAD
+         ********************************************************************/
+        window.onload = function() {
+            buildEnvironment();
+            buildWarehouses();
+            initFleet();
+            initWorkers();
+            initFloatingLabels();
+            renderWarehouseCards();
+            renderEntityList();
+
+            // Periodically refresh the sidebar status badges
+            setInterval(renderEntityList, 1500);
+
+            let lastTime = performance.now();
+            function animate(now) {
+                requestAnimationFrame(animate);
+                const dt = Math.min(0.05, (now - lastTime) / 1000);
+                lastTime = now;
+
+                updateSimulation(dt);
+                updateCamera();
+                updateFloatingLabels();
+                renderer.render(scene, camera);
+            }
+            animate(performance.now());
+        };
+    </script>
+</body>
+</html>
